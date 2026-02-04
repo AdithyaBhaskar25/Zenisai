@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.zenisai.twa",
+        "sha256_cert_fingerprints": ["EF:6E:FF:3A:2F:D9:CA:B4:3C:37:AE:AA:64:7F:F7:C9:10:AD:13:71:7E:27:12:C9:9F:3C:13:D6:02:30:F9:CC"]
+      }
+    }]
