@@ -1,0 +1,121 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Zenisai - Premium Music</title>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        @property --color-primary {
+            syntax: '<color>';
+            initial-value: #a855f7;
+            inherits: true;
+        }
+        @property --color-bg {
+            syntax: '<color>';
+            initial-value: #000000;
+            inherits: true;
+        }
+        @property --color-glow {
+            syntax: '<color>';
+            initial-value: rgba(168, 85, 247, 0.2);
+            inherits: true;
+        }
+
+        :root {
+            --color-primary: #a855f7;
+            --color-bg: #000000;
+            --color-surface: #121212;
+            --color-glow: rgba(168, 85, 247, 0.2);
+            transition: --color-primary 1.2s cubic-bezier(0.23, 1, 0.32, 1), 
+                        --color-bg 1.2s cubic-bezier(0.23, 1, 0.32, 1), 
+                        --color-glow 1.2s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-tap-highlight-color: transparent; 
+            background-color: var(--color-bg);
+            color: white;
+            transition: background-color 1.5s cubic-bezier(0.23, 1, 0.32, 1);
+            user-select: none;
+            overflow: hidden;
+        }
+
+        ::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .dynamic-theme-element {
+            transition: all 1s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .glow-overlay {
+            background: radial-gradient(circle at center, var(--color-glow), transparent 85%);
+            transition: background 2s cubic-bezier(0.23, 1, 0.32, 1);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+            transition: transform 0.2s ease;
+        }
+
+        input[type="range"]:active::-webkit-slider-thumb {
+            transform: scale(1.4);
+        }
+
+        /* Silky smooth text transitions */
+        h1, h2, h3, p, span {
+            transition: color 1s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        /* Accent Utilities using Dynamic CSS Variables */
+        .text-accent { color: var(--color-primary) !important; }
+        .bg-accent { background-color: var(--color-primary) !important; }
+        .border-accent { border-color: var(--color-primary) !important; }
+        .shadow-accent { box-shadow: 0 0 30px var(--color-glow); }
+        .fill-accent { fill: var(--color-primary) !important; }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.39.0"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+<body class="selection:bg-purple-500/30 overflow-hidden">
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').then(reg => {
+            console.log('SW registered');
+          }).catch(err => {
+            console.log('SW failed', err);
+          });
+        });
+      }
+    </script>
+<script type="module" src="/index.tsx"></script>
+</body>
+</html>

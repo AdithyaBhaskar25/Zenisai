@@ -1,0 +1,7 @@
+{
+  "name": "Zenisai",
+  "description": "A premium mobile-first AI-powered music player with dynamic theming, live AI voice interactions, and robust playlist management.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
