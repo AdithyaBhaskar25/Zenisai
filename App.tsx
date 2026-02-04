@@ -249,6 +249,50 @@ const App: React.FC = () => {
     setPlaylists(prev => [...prev, newP]);
     return newP;
   };
+  // --- MEDIA SESSION API INTEGRATION ---
+  useEffect(() => {
+    if (!currentSong || !('mediaSession' in navigator)) return;
+
+    // 1. Update Metadata (Title, Artist, Artwork)
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentSong.title,
+      artist: currentSong.artist,
+      album: currentSong.album || 'Unknown Album',
+      artwork: [
+        { src: currentSong.artwork, sizes: '96x96', type: 'image/png' },
+        { src: currentSong.artwork, sizes: '128x128', type: 'image/png' },
+        { src: currentSong.artwork, sizes: '192x192', type: 'image/png' },
+        { src: currentSong.artwork, sizes: '512x512', type: 'image/png' },
+      ],
+    });
+
+    // 2. Update Playback State (Playing/Paused)
+    // This tells the browser which button (Play vs Pause) to show in the notification
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+
+    // 3. Set Action Handlers (Notification Buttons)
+    navigator.mediaSession.setActionHandler('play', () => togglePlay());
+    navigator.mediaSession.setActionHandler('pause', () => togglePlay());
+    navigator.mediaSession.setActionHandler('previoustrack', () => handlePrev());
+    navigator.mediaSession.setActionHandler('nexttrack', () => handleNext());
+    
+    // Optional: Add seeking support
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      if (details.seekTime && audioRef.current) {
+        audioRef.current.currentTime = details.seekTime;
+        setProgress(details.seekTime); // Update your local UI state
+      }
+    });
+
+    // Cleanup when component unmounts or dependencies change
+    return () => {
+      navigator.mediaSession.setActionHandler('play', null);
+      navigator.mediaSession.setActionHandler('pause', null);
+      navigator.mediaSession.setActionHandler('previoustrack', null);
+      navigator.mediaSession.setActionHandler('nexttrack', null);
+    };
+
+  }, [currentSong, isPlaying, togglePlay, handlePrev, handleNext]); // Re-run when these change
 
   return (
     <div className="flex flex-col h-[100dvh] bg-black relative overflow-hidden transition-colors duration-1000">
