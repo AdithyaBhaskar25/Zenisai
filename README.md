@@ -71,6 +71,4 @@ The project follows a standard web-app structure.
     * Web App Manifest
 
 ---
-# Zenisai
-# Zenisai
-# Zenisai
+
