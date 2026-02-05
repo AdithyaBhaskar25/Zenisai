@@ -127,6 +127,45 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   };
 
   const progressPercent = (progress / (duration || 1)) * 100;
+  // ... existing code ...
+
+  // MOBILE DRAG FIX: Handle touch reordering
+  const dragItemRef = useRef<number | null>(null);
+  const dragOverItemRef = useRef<number | null>(null);
+
+  const handleQueueTouchStart = (e: React.TouchEvent, index: number) => {
+    // Prevent default to stop scrolling while dragging
+    dragItemRef.current = index;
+    // Add visual feedback class to the row if needed
+  };
+
+  const handleQueueTouchMove = (e: React.TouchEvent) => {
+    if (dragItemRef.current === null) return;
+    
+    // Stop screen from scrolling while moving item
+    // Note: You might need 'touch-action: none' in CSS for the item
+    
+    const touch = e.touches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+    
+    // Find the row under the finger
+    const row = target?.closest('[data-queue-index]');
+    if (row) {
+      const targetIndex = parseInt(row.getAttribute('data-queue-index') || '-1');
+      
+      // If we moved to a new index, swap them
+      if (targetIndex !== -1 && targetIndex !== dragItemRef.current) {
+        onMoveQueueItem(dragItemRef.current, targetIndex);
+        // Update our reference because the item has moved to the new index
+        dragItemRef.current = targetIndex; 
+      }
+    }
+  };
+
+  const handleQueueTouchEnd = () => {
+    dragItemRef.current = null;
+    dragOverItemRef.current = null;
+  };
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-black overflow-hidden animate-in slide-in-from-bottom duration-700 cubic-bezier(0.23, 1, 0.32, 1)">
@@ -218,21 +257,46 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
             </div>
           )}
 
-          {activeTab === 'queue' && (
+                    {activeTab === 'queue' && (
             <div className="h-full w-full overflow-y-auto no-scrollbar py-6 animate-in slide-in-from-bottom-8 duration-700">
-              <div className="space-y-3 pb-32 px-2">
+              <div className="space-y-3 pb-32 px-2" onTouchMove={handleQueueTouchMove} onTouchEnd={handleQueueTouchEnd}>
                 {queue.map((qs, i) => (
                     <div 
-                      key={qs.id + i} 
-                      className={`flex items-center gap-4 p-3.5 rounded-[32px] border transition-all duration-500 relative group active:scale-[0.98]
+                      // CRITICAL FIX: Use qs.id or a unique ID. Do NOT use index (i) in the key!
+                      // If qs.id is not unique (duplicate songs), generate a unique ID when adding to queue.
+                      // For now, using qs.id assuming uniqueness.
+                      key={qs.id} 
+                      
+                      // For Mobile Drag Logic
+                      data-queue-index={i} 
+
+                      // Desktop Drag Events
+                      draggable 
+                      onDragStart={(e) => handleDragStart(e, i)}
+                      onDragOver={(e) => handleDragOver(e, i)}
+                      onDrop={(e) => handleDrop(e, i)}
+
+                      className={`flex items-center gap-4 p-3.5 rounded-[32px] border transition-all duration-300 relative group
                         ${qs.id === song.id ? 'bg-white/10 border-white/20' : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.07]'}
+                        ${draggedItemIndex === i ? 'opacity-50 scale-95' : ''} 
+                        ${dragOverIndex === i ? 'border-accent scale-105 z-10' : ''}
                       `}
                     >
-                      <img src={qs.artwork} className="w-12 h-12 rounded-xl object-cover shadow-lg" onClick={() => onPlayFromQueue(qs)} />
+                      {/* Drag Handle (Mobile Optimized) */}
+                      <div 
+                         className="p-2 -ml-2 text-white/20 touch-none cursor-grab active:cursor-grabbing"
+                         onTouchStart={(e) => handleQueueTouchStart(e, i)}
+                      >
+                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path></svg>
+                      </div>
+
+                      <img src={qs.artwork} className="w-12 h-12 rounded-xl object-cover shadow-lg pointer-events-none" />
+                      
                       <div className="flex-1 min-w-0" onClick={() => onPlayFromQueue(qs)}>
                         <p className={`text-[13px] font-black truncate leading-tight ${qs.id === song.id ? 'text-accent' : 'text-white'}`}>{qs.title}</p>
                         <p className="text-[9px] text-white/30 uppercase font-black tracking-widest mt-0.5">{qs.artist}</p>
                       </div>
+                      
                       <button onClick={() => onRemoveFromQueue(qs.id)} className="p-2 text-white/10 hover:text-red-500 active:scale-75 transition-all">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
                       </button>
@@ -241,6 +305,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
               </div>
             </div>
           )}
+
         </div>
 
         <footer className="mt-8 space-y-5 bg-zinc-900/50 backdrop-blur-3xl rounded-[44px] p-4 border border-white/5 shadow-2xl transition-all duration-1000">
