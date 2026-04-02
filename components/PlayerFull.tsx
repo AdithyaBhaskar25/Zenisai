@@ -1,6 +1,19 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Song, Playlist } from '../types';
+
+// Helper to parse [mm:ss.xx] or [mm:ss] into seconds
+const parseTimestamp = (lrcTimestamp: string): number => {
+  const match = lrcTimestamp.match(/\[(\d+):(\d+(?:\.\d+)?)\]/);
+  if (!match) return 0;
+  const minutes = parseInt(match[1]);
+  const seconds = parseFloat(match[2]);
+  return minutes * 60 + seconds;
+};
+
+interface LyricLine {
+  time: number;
+  text: string;
+}
 
 interface PlayerFullProps {
   song: Song;
@@ -18,7 +31,7 @@ interface PlayerFullProps {
   setSleepTimer: (val: number | null) => void;
   queue: Song[];
   onPlayFromQueue: (song: Song) => void;
-  lyrics: string;
+  lyrics: string; // This remains as a fallback or prop, but we'll prioritize LRCLIB
   onRemoveFromQueue: (id: string) => void;
   onMoveQueueItem: (from: number, to: number) => void;
   playlists: Playlist[];
@@ -36,7 +49,7 @@ interface PlayerFullProps {
 
 const PlayerFull: React.FC<PlayerFullProps> = ({ 
   song, isPlaying, onToggle, onNext, onPrev, onClose, dominantColor, progress, duration, onSeek, analyser,
-  sleepTimer, setSleepTimer, queue, onPlayFromQueue, lyrics, onRemoveFromQueue, onMoveQueueItem, 
+  sleepTimer, setSleepTimer, queue, onPlayFromQueue, lyrics: propLyrics, onRemoveFromQueue, onMoveQueueItem, 
   isFavorite, onToggleFavorite, onDownload, onShare, isShuffle, onToggleShuffle, repeatMode, onToggleRepeat, onShowPlaylistModal
 }) => {
   const [activeTab, setActiveTab] = useState<'player' | 'lyrics' | 'queue'>('player');
@@ -47,6 +60,73 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   const touchStartRef = useRef<number | null>(null);
   const visualizerCanvasRef = useRef<HTMLCanvasElement>(null);
 
+  // --- LRCLIB INTEGRATION STATE ---
+  const [syncedLyrics, setSyncedLyrics] = useState<LyricLine[]>([]);
+  const [plainLyrics, setPlainLyrics] = useState<string[]>([]);
+  const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
+  const lyricsScrollRef = useRef<HTMLDivElement>(null);
+  const activeLyricRef = useRef<HTMLParagraphElement>(null);
+
+  // 1. Fetch Lyrics from LRCLIB
+  useEffect(() => {
+    const fetchLyrics = async () => {
+      setIsLoadingLyrics(true);
+      setSyncedLyrics([]);
+      setPlainLyrics([]);
+
+      try {
+        const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(song.artist)}&track_name=${encodeURIComponent(song.title)}&album_name=${encodeURIComponent(song.album || '')}&duration=${Math.round(duration)}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.syncedLyrics) {
+          // Parse LRC format
+          const lines = data.syncedLyrics.split('\n')
+            .map((line: string) => {
+              const time = parseTimestamp(line);
+              const text = line.replace(/\[.*\]/, '').trim();
+              return { time, text };
+            })
+            .filter((l: LyricLine) => l.text.length > 0);
+          setSyncedLyrics(lines);
+        } else if (data.plainLyrics) {
+          setPlainLyrics(data.plainLyrics.split('\n'));
+        } else {
+          // Fallback to prop lyrics if API fails
+          setPlainLyrics(propLyrics.split('\n'));
+        }
+      } catch (error) {
+        console.error("LRCLIB Error:", error);
+        setPlainLyrics(propLyrics.split('\n'));
+      } finally {
+        setIsLoadingLyrics(false);
+      }
+    };
+
+    fetchLyrics();
+  }, [song, duration, propLyrics]);
+
+  // 2. Auto-scroll to active lyric
+  useEffect(() => {
+    if (activeTab === 'lyrics' && activeLyricRef.current) {
+      activeLyricRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
+  }, [progress, activeTab]);
+
+  // Determine current active lyric index
+  const currentLineIndex = useMemo(() => {
+    if (syncedLyrics.length === 0) return -1;
+    // Find the last index where the line's time is less than or equal to current progress
+    for (let i = syncedLyrics.length - 1; i >= 0; i--) {
+      if (progress >= syncedLyrics[i].time) return i;
+    }
+    return -1;
+  }, [syncedLyrics, progress]);
+
+  // --- EXISTING VISUALIZER LOGIC ---
   useEffect(() => {
     if (!analyser || !visualizerCanvasRef.current) return;
     const canvas = visualizerCanvasRef.current;
@@ -61,7 +141,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
       animationId = requestAnimationFrame(draw);
       analyser.getByteFrequencyData(dataArray);
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
+
       const barWidth = (canvas.width / bufferLength) * 2.2;
       let x = 0;
 
@@ -71,7 +151,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
         const grad = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
         grad.addColorStop(0, dominantColor.replace('rgb', 'rgba').replace(')', ', 0.1)'));
         grad.addColorStop(1, dominantColor.replace('rgb', 'rgba').replace(')', `, ${0.4 + (val/255) * 0.6})`));
-        
+
         ctx.fillStyle = grad;
         ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
         x += barWidth + 1.5;
@@ -81,6 +161,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     return () => cancelAnimationFrame(animationId);
   }, [analyser, dominantColor]);
 
+  // --- HELPERS ---
   const handleTouchStart = (e: React.TouchEvent) => touchStartRef.current = e.touches[0].clientX;
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartRef.current === null) return;
@@ -127,36 +208,22 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   };
 
   const progressPercent = (progress / (duration || 1)) * 100;
-  // ... existing code ...
 
-  // MOBILE DRAG FIX: Handle touch reordering
   const dragItemRef = useRef<number | null>(null);
-  const dragOverItemRef = useRef<number | null>(null);
 
   const handleQueueTouchStart = (e: React.TouchEvent, index: number) => {
-    // Prevent default to stop scrolling while dragging
     dragItemRef.current = index;
-    // Add visual feedback class to the row if needed
   };
 
   const handleQueueTouchMove = (e: React.TouchEvent) => {
     if (dragItemRef.current === null) return;
-    
-    // Stop screen from scrolling while moving item
-    // Note: You might need 'touch-action: none' in CSS for the item
-    
     const touch = e.touches[0];
     const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    
-    // Find the row under the finger
     const row = target?.closest('[data-queue-index]');
     if (row) {
       const targetIndex = parseInt(row.getAttribute('data-queue-index') || '-1');
-      
-      // If we moved to a new index, swap them
       if (targetIndex !== -1 && targetIndex !== dragItemRef.current) {
         onMoveQueueItem(dragItemRef.current, targetIndex);
-        // Update our reference because the item has moved to the new index
         dragItemRef.current = targetIndex; 
       }
     }
@@ -164,19 +231,18 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
 
   const handleQueueTouchEnd = () => {
     dragItemRef.current = null;
-    dragOverItemRef.current = null;
   };
 
   return (
     <div className="fixed inset-0 z-[200] flex flex-col bg-black overflow-hidden animate-in slide-in-from-bottom duration-700 cubic-bezier(0.23, 1, 0.32, 1)">
       <div className="absolute inset-0 opacity-40 blur-[200px] transition-all duration-1000 animate-pulse" style={{ background: `radial-gradient(circle at center, ${dominantColor}, transparent 80%)` }} />
-      
+
       <div className="relative z-10 flex flex-col h-full px-6 pt-12 pb-6">
         <header className="flex justify-between items-center mb-6">
           <button onClick={onClose} className="p-3 bg-white/5 rounded-full text-white/70 active:scale-[0.85] transition-all hover:bg-white/10 shadow-lg">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
           </button>
-          
+
           <div className="flex-1 text-center">
             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-0.5 leading-none">Zenisai</p>
             <p className="text-[11px] font-bold text-white/80 truncate max-w-[150px] mx-auto uppercase tracking-widest">{song.album}</p>
@@ -246,57 +312,64 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
           )}
 
           {activeTab === 'lyrics' && (
-            <div className="h-full w-full overflow-y-auto no-scrollbar text-center py-12 animate-in slide-in-from-bottom-8 duration-700">
+            <div ref={lyricsScrollRef} className="h-full w-full overflow-y-auto no-scrollbar text-center py-12 animate-in slide-in-from-bottom-8 duration-700">
               <div className="space-y-8 px-8 pb-32">
-                {lyrics.split('\n').map((l, i) => (
-                  <p key={i} className="text-lg font-bold text-white/40 hover:text-white transition-all duration-500 leading-relaxed active:scale-105 active:text-accent">
-                    {l}
-                  </p>
-                ))}
+                {isLoadingLyrics ? (
+                  <p className="text-white/20 animate-pulse text-[10px] font-black uppercase tracking-widest">Searching LRCLIB...</p>
+                ) : syncedLyrics.length > 0 ? (
+                  syncedLyrics.map((line, i) => (
+                    <p 
+                      key={i} 
+                      ref={i === currentLineIndex ? activeLyricRef : null}
+                      onClick={() => onSeek(line.time)}
+                      className={`text-xl font-black transition-all duration-500 leading-relaxed cursor-pointer
+                        ${i === currentLineIndex ? 'text-white scale-110' : 'text-white/20 hover:text-white/40'}
+                      `}
+                    >
+                      {line.text}
+                    </p>
+                  ))
+                ) : plainLyrics.length > 0 ? (
+                  plainLyrics.map((l, i) => (
+                    <p key={i} className="text-lg font-bold text-white/40 leading-relaxed">
+                      {l}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-white/20 text-[10px] font-black uppercase tracking-widest">No Lyrics Found</p>
+                )}
               </div>
             </div>
           )}
 
-                    {activeTab === 'queue' && (
+          {activeTab === 'queue' && (
             <div className="h-full w-full overflow-y-auto no-scrollbar py-6 animate-in slide-in-from-bottom-8 duration-700">
               <div className="space-y-3 pb-32 px-2" onTouchMove={handleQueueTouchMove} onTouchEnd={handleQueueTouchEnd}>
                 {queue.map((qs, i) => (
                     <div 
-                      // CRITICAL FIX: Use qs.id or a unique ID. Do NOT use index (i) in the key!
-                      // If qs.id is not unique (duplicate songs), generate a unique ID when adding to queue.
-                      // For now, using qs.id assuming uniqueness.
                       key={qs.id} 
-                      
-                      // For Mobile Drag Logic
                       data-queue-index={i} 
-
-                      // Desktop Drag Events
                       draggable 
                       onDragStart={(e) => handleDragStart(e, i)}
                       onDragOver={(e) => handleDragOver(e, i)}
                       onDrop={(e) => handleDrop(e, i)}
-
                       className={`flex items-center gap-4 p-3.5 rounded-[32px] border transition-all duration-300 relative group
                         ${qs.id === song.id ? 'bg-white/10 border-white/20' : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.07]'}
                         ${draggedItemIndex === i ? 'opacity-50 scale-95' : ''} 
                         ${dragOverIndex === i ? 'border-accent scale-105 z-10' : ''}
                       `}
                     >
-                      {/* Drag Handle (Mobile Optimized) */}
                       <div 
                          className="p-2 -ml-2 text-white/20 touch-none cursor-grab active:cursor-grabbing"
                          onTouchStart={(e) => handleQueueTouchStart(e, i)}
                       >
                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path></svg>
                       </div>
-
                       <img src={qs.artwork} className="w-12 h-12 rounded-xl object-cover shadow-lg pointer-events-none" />
-                      
                       <div className="flex-1 min-w-0" onClick={() => onPlayFromQueue(qs)}>
                         <p className={`text-[13px] font-black truncate leading-tight ${qs.id === song.id ? 'text-accent' : 'text-white'}`}>{qs.title}</p>
                         <p className="text-[9px] text-white/30 uppercase font-black tracking-widest mt-0.5">{qs.artist}</p>
                       </div>
-                      
                       <button onClick={() => onRemoveFromQueue(qs.id)} className="p-2 text-white/10 hover:text-red-500 active:scale-75 transition-all">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
                       </button>
@@ -305,7 +378,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
               </div>
             </div>
           )}
-
         </div>
 
         <footer className="mt-8 space-y-5 bg-zinc-900/50 backdrop-blur-3xl rounded-[44px] p-4 border border-white/5 shadow-2xl transition-all duration-1000">
