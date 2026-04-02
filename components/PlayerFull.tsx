@@ -55,19 +55,18 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   const [activeTab, setActiveTab] = useState<'player' | 'lyrics' | 'queue'>('player');
   const [showDropdown, setShowDropdown] = useState(false);
   const [showSleepTimerMenu, setShowSleepTimerMenu] = useState(false);
-  const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const touchStartRef = useRef<number | null>(null);
-  const visualizerCanvasRef = useRef<HTMLCanvasElement>(null);
-
-  // --- LRCLIB STATE ---
+  
+  // --- LYRIC ENGINE STATE ---
   const [syncedLyrics, setSyncedLyrics] = useState<LyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState<string[]>([]);
   const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
+  
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
   const activeLyricRef = useRef<HTMLParagraphElement>(null);
+  const visualizerCanvasRef = useRef<HTMLCanvasElement>(null);
+  const touchStartRef = useRef<number | null>(null);
 
-  // --- LYRIC FETCHING LOGIC (TIERED STRATEGY) ---
+  // --- ULTRA-ROBUST LYRIC FETCHING ---
   useEffect(() => {
     const fetchLyrics = async () => {
       if (!song.title) return;
@@ -75,51 +74,65 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
       setSyncedLyrics([]);
       setPlainLyrics([]);
 
+      // Clean title: "Mutta Kalaki (From Kedi...)" -> "Mutta Kalaki"
+      const cleanTitleStr = song.title.replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
       const artist = encodeURIComponent(song.artist);
       const title = encodeURIComponent(song.title);
-      const album = encodeURIComponent(song.album || '');
+      const simpleTitle = encodeURIComponent(cleanTitleStr);
       const dur = Math.round(duration);
 
       const processData = (data: any): boolean => {
-        if (data.syncedLyrics) {
-          const lines = data.syncedLyrics.split('\n')
-            .map((line: string) => ({
-              time: parseTimestamp(line),
-              text: line.replace(/\[.*\]/, '').trim()
-            }))
-            .filter((l: any) => l.text.length > 0 || l.text === "");
-          setSyncedLyrics(lines);
-          return true;
-        } else if (data.plainLyrics) {
-          setPlainLyrics(data.plainLyrics.split('\n'));
-          return true;
-        } else if (data.instrumental) {
-          setPlainLyrics(["Instrumental"]);
+        if (data && (data.syncedLyrics || data.plainLyrics || data.instrumental)) {
+          if (data.syncedLyrics) {
+            const lines = data.syncedLyrics.split('\n')
+              .map((line: string) => ({
+                time: parseTimestamp(line),
+                text: line.replace(/\[.*\]/, '').trim()
+              }))
+              .filter((l: any) => l.text.length > 0 || l.text === "");
+            setSyncedLyrics(lines);
+          } else if (data.plainLyrics) {
+            setPlainLyrics(data.plainLyrics.split('\n'));
+          } else if (data.instrumental) {
+            setPlainLyrics(["◆ Instrumental ◆"]);
+          }
           return true;
         }
         return false;
       };
 
       try {
-        // Tier 1: Exact GET
-        const getRes = await fetch(`https://lrclib.net/api/get?artist_name=${artist}&track_name=${title}&album_name=${album}&duration=${dur}`);
+        // Tier 1: Exact Match GET
+        const getRes = await fetch(`https://lrclib.net/api/get?artist_name=${artist}&track_name=${title}&duration=${dur}`);
         if (getRes.ok && processData(await getRes.json())) return;
 
-        // Tier 2: Search Fallback
+        // Tier 2: Search by Track + Artist (Handles slight duration mismatch)
         const searchRes = await fetch(`https://lrclib.net/api/search?track_name=${title}&artist_name=${artist}`);
         if (searchRes.ok) {
           const results = await searchRes.json();
           if (results?.length > 0) {
             const bestMatch = results.sort((a: any, b: any) => {
               if (a.syncedLyrics && !b.syncedLyrics) return -1;
-              if (!a.syncedLyrics && b.syncedLyrics) return 1;
               return Math.abs(a.duration - dur) - Math.abs(b.duration - dur);
             })[0];
             if (processData(bestMatch)) return;
           }
         }
 
-        // Tier 3: Prop Fallback
+        // Tier 3: Broad "Clean Title" Keyword Search (The Mutta Kalaki Fix)
+        const broadRes = await fetch(`https://lrclib.net/api/search?q=${simpleTitle}`);
+        if (broadRes.ok) {
+          const broadResults = await broadRes.json();
+          if (broadResults?.length > 0) {
+            const bestBroadMatch = broadResults.sort((a: any, b: any) => {
+              if (a.syncedLyrics && !b.syncedLyrics) return -1;
+              return Math.abs(a.duration - dur) - Math.abs(b.duration - dur);
+            })[0];
+            if (processData(bestBroadMatch)) return;
+          }
+        }
+
+        // Tier 4: Local Fallback
         if (propLyrics) setPlainLyrics(propLyrics.split('\n'));
       } catch (e) {
         if (propLyrics) setPlainLyrics(propLyrics.split('\n'));
@@ -129,9 +142,9 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     };
 
     fetchLyrics();
-  }, [song.id, duration, propLyrics]);
+  }, [song.id, duration]);
 
-  // Sync scroll and highlight
+  // Sync scroll to current line
   const currentLineIndex = useMemo(() => {
     for (let i = syncedLyrics.length - 1; i >= 0; i--) {
       if (progress >= syncedLyrics[i].time) return i;
@@ -145,7 +158,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     }
   }, [currentLineIndex, activeTab]);
 
-  // --- VISUALIZER ---
+  // --- VISUALIZER LOGIC ---
   useEffect(() => {
     if (!analyser || !visualizerCanvasRef.current) return;
     const canvas = visualizerCanvasRef.current;
@@ -175,7 +188,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     return () => cancelAnimationFrame(animationId);
   }, [analyser, dominantColor]);
 
-  // --- QUEUE DRAG LOGIC ---
+  // --- QUEUE TOUCH REORDERING ---
   const dragItemRef = useRef<number | null>(null);
   const handleQueueTouchStart = (index: number) => { dragItemRef.current = index; };
   const handleQueueTouchMove = (e: React.TouchEvent) => {
@@ -247,8 +260,8 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                     <button onClick={() => setShowSleepTimerMenu(false)} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white/30 border-b border-white/5 mb-1">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"></path></svg> Back
                     </button>
-                    {[null, 15*60, 30*60, 45*60, 60*60].map(val => (
-                      <button key={val} onClick={() => { setSleepTimer(val); setShowDropdown(false); }} className={`w-full text-left p-3 rounded-2xl hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all ${sleepTimer === val ? 'text-accent' : 'text-white/70'}`}>
+                    {[null, 900, 1800, 2700, 3600].map(val => (
+                      <button key={String(val)} onClick={() => { setSleepTimer(val); setShowDropdown(false); }} className={`w-full text-left p-3 rounded-2xl hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all ${sleepTimer === val ? 'text-accent' : 'text-white/70'}`}>
                         {val === null ? 'Off' : `${val/60} Min`}
                       </button>
                     ))}
@@ -265,7 +278,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
               <div className="w-full max-w-[240px] bg-white/[0.03] backdrop-blur-2xl rounded-[48px] p-4 border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.8)] relative select-none" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
                 <img src={song.artwork} className={`w-full aspect-square rounded-[36px] object-cover transition-all duration-700 pointer-events-none ${isPlaying ? 'scale-100' : 'opacity-40 grayscale scale-95'}`} />
                 <button onClick={onToggleFavorite} className={`absolute top-8 right-8 p-2.5 rounded-full transition-all duration-700 ${isFavorite ? 'bg-accent text-white shadow-accent' : 'bg-black/40 text-white/40 active:scale-[0.8]'}`}>
-                  <svg className="w-5 h-5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+                  <svg className="w-5 h-5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
                 </button>
               </div>
               <div className="mt-8 text-center px-6 w-full animate-in slide-in-from-bottom-2 duration-700 delay-200">
@@ -300,13 +313,17 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
               <div className="space-y-3 pb-32 px-2" onTouchMove={handleQueueTouchMove} onTouchEnd={() => { dragItemRef.current = null; }}>
                 {queue.map((qs, i) => (
                     <div key={qs.id} data-queue-index={i} className={`flex items-center gap-4 p-3.5 rounded-[32px] border transition-all duration-300 relative group ${qs.id === song.id ? 'bg-white/10 border-white/20' : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.07]'}`}>
-                      <div className="p-2 -ml-2 text-white/20 touch-none cursor-grab active:cursor-grabbing" onTouchStart={() => handleQueueTouchStart(i)}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path></svg></div>
+                      <div className="p-2 -ml-2 text-white/20 touch-none cursor-grab active:cursor-grabbing" onTouchStart={() => handleQueueTouchStart(i)}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path></svg>
+                      </div>
                       <img src={qs.artwork} className="w-12 h-12 rounded-xl object-cover pointer-events-none" />
                       <div className="flex-1 min-w-0" onClick={() => onPlayFromQueue(qs)}>
                         <p className={`text-[13px] font-black truncate leading-tight ${qs.id === song.id ? 'text-accent' : 'text-white'}`}>{qs.title}</p>
                         <p className="text-[9px] text-white/30 uppercase font-black tracking-widest mt-0.5">{qs.artist}</p>
                       </div>
-                      <button onClick={() => onRemoveFromQueue(qs.id)} className="p-2 text-white/10 hover:text-red-500 active:scale-75 transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path></svg></button>
+                      <button onClick={() => onRemoveFromQueue(qs.id)} className="p-2 text-white/10 hover:text-red-500 active:scale-75 transition-all">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                      </button>
                     </div>
                 ))}
               </div>
@@ -333,7 +350,9 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
           </div>
 
           <div className="flex items-center justify-between px-2">
-            <button onClick={onToggleShuffle} className={`p-2.5 rounded-full transition-all duration-500 ${isShuffle ? 'text-accent' : 'text-white/20'}`}><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg></button>
+            <button onClick={onToggleShuffle} className={`p-2.5 rounded-full transition-all duration-500 ${isShuffle ? 'text-accent' : 'text-white/20'}`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+            </button>
             <div className="flex items-center gap-4">
               <button onClick={onPrev} className="text-white/30 p-2 active:scale-[0.85] transition-all"><svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg></button>
               <button onClick={onToggle} className="w-14 h-14 flex items-center justify-center bg-white text-black rounded-full active:scale-[0.85] transition-all shadow-xl">
@@ -343,7 +362,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
             </div>
             <button onClick={onToggleRepeat} className={`p-2.5 rounded-full transition-all duration-500 ${repeatMode !== 'off' ? 'text-accent' : 'text-white/20'}`}>
               <div className="relative">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                 {repeatMode === 'one' && <span className="absolute -top-1 -right-1 text-[7px] bg-accent text-white rounded-full w-3.5 h-3.5 flex items-center justify-center border-2 border-zinc-900 font-black">1</span>}
               </div>
             </button>
