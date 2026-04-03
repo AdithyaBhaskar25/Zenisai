@@ -37,7 +37,8 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   const activeLyricRef = useRef<HTMLParagraphElement>(null);
   const waveCanvasRef = useRef<HTMLCanvasElement>(null);
   const touchStartRef = useRef<number | null>(null);
-  const modalTouchStartRef = useRef<number | null>(null);
+  const lastTapRef = useRef<number>(0);
+  const dragItemRef = useRef<number | null>(null);
 
   // --- LYRIC ENGINE ---
   useEffect(() => {
@@ -106,21 +107,22 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     return () => cancelAnimationFrame(animationId);
   }, [isPlaying, progress, duration, dominantColor, analyser]);
 
-  // --- GESTURES ---
+  // --- GESTURE LOGIC ---
+  const handleDoubleTap = () => {
+    const now = Date.now();
+    if (now - lastTapRef.current < 300) onToggle();
+    lastTapRef.current = now;
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => touchStartRef.current = e.touches[0].clientX;
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartRef.current === null) return;
     const diff = touchStartRef.current - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 70) { diff > 0 ? onNext() : onPrev(); }
+    if (Math.abs(diff) > 80) {
+      if (diff > 0) onNext();
+      else onPrev();
+    }
     touchStartRef.current = null;
-  };
-
-  const handleModalTouchStart = (e: React.TouchEvent) => modalTouchStartRef.current = e.touches[0].clientY;
-  const handleModalTouchEnd = (e: React.TouchEvent, closeFn: () => void) => {
-    if (modalTouchStartRef.current === null) return;
-    const diff = e.changedTouches[0].clientY - modalTouchStartRef.current;
-    if (diff > 120) closeFn();
-    modalTouchStartRef.current = null;
   };
 
   const formatTime = (t: number) => {
@@ -133,29 +135,30 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
       className="fixed inset-0 z-[200] bg-black text-white flex flex-col overflow-hidden font-sans select-none"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      onDoubleClick={onToggle} // Desktop double-click
     >
       <div className="absolute inset-0 opacity-40 transition-all duration-1000" style={{ background: `linear-gradient(to bottom, ${dominantColor}22 0%, #000 100%)` }} />
       <div className="absolute inset-0 backdrop-blur-[140px]" />
 
-      {/* --- EDGE TAP ZONES (VIDEO PLAYER STYLE) --- */}
-      <div onClick={onPrev} className="absolute left-0 top-0 bottom-0 w-[15%] z-20 cursor-pointer group">
-         <div className="h-full flex items-center justify-center opacity-0 group-hover:opacity-20 transition-opacity">
-            <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
-         </div>
-      </div>
-      <div onClick={onNext} className="absolute right-0 top-0 bottom-0 w-[15%] z-20 cursor-pointer group">
-         <div className="h-full flex items-center justify-center opacity-0 group-hover:opacity-20 transition-opacity">
-            <svg className="w-12 h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
-         </div>
-      </div>
+      {/* --- EDGE TAP ZONES (NEXT/PREV) --- */}
+      <div onClick={onPrev} className="absolute left-0 top-0 bottom-0 w-[12%] z-20 cursor-pointer group" />
+      <div onClick={onNext} className="absolute right-0 top-0 bottom-0 w-[12%] z-20 cursor-pointer group" />
 
-      {/* --- MAIN HEADER --- */}
+      {/* --- HEADER --- */}
       <header className="relative z-30 flex items-center justify-between p-6 landscape:px-12 landscape:pt-10 shrink-0">
-        <button onClick={onClose} className="p-3 bg-white/5 rounded-full hover:bg-white/10 active:scale-90 transition-all">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
-        </button>
+        <div className="flex items-center gap-6">
+            <button onClick={onClose} className="p-3 bg-white/5 rounded-full hover:bg-white/10 active:scale-90 transition-all">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
+            </button>
+            {/* Landscape Nav Tabs (Top Leftish) */}
+            <div className="hidden landscape:flex gap-8 ml-4">
+                {(['lyrics', 'queue'] as const).map(t => (
+                <button key={t} onClick={() => setActiveTab(t)} className={`text-[11px] font-black uppercase tracking-[0.4em] transition-all border-b-2 pb-1 ${activeTab === t ? 'text-white border-white' : 'opacity-20 border-transparent'}`}>{t}</button>
+                ))}
+            </div>
+        </div>
 
-        {/* Global Controls Row (Landscape Top Right) */}
+        {/* Global Controls Row */}
         <div className="flex gap-3 items-center">
             <button onClick={onToggleShuffle} className={`p-3 rounded-full transition-all ${isShuffle ? 'bg-white text-black' : 'bg-white/5'}`}>
                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeWidth="3" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
@@ -183,34 +186,48 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
       </header>
 
       {/* --- CONTENT CENTERPIECE --- */}
-      <main className="relative flex-1 flex flex-col items-center justify-center px-8 z-10 min-h-0">
-        <div 
-          onClick={onToggle}
-          className="relative w-full max-w-[320px] landscape:max-w-[240px] aspect-square shrink-0 cursor-pointer"
-        >
-          <img src={song.artwork} className={`w-full h-full object-cover rounded-[56px] shadow-2xl transition-all duration-1000 ${isPlaying ? 'scale-100' : 'scale-90 opacity-40 blur-[4px]'}`} />
-          <button 
-            onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }} 
-            className="absolute bottom-5 left-5 p-4 rounded-3xl backdrop-blur-3xl shadow-xl transition-all active:scale-75"
-            style={{ backgroundColor: `${dominantColor}dd` }}
-          >
-            <svg className="w-6 h-6" fill={isFavorite ? "currentColor" : "none"} stroke="white" viewBox="0 0 24 24"><path strokeWidth="3" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
-          </button>
+      <main className="relative flex-1 flex flex-col landscape:flex-row items-center justify-center px-8 z-10 min-h-0">
+        
+        {/* Left Column (Landscape) / Top Section (Portrait) */}
+        <div className="flex flex-col items-center landscape:items-start justify-center gap-6 landscape:w-[40%]">
+            <div 
+              onClick={handleDoubleTap}
+              className="relative w-full max-w-[300px] landscape:max-w-[240px] aspect-square shrink-0 cursor-pointer transition-transform active:scale-95"
+            >
+              <img src={song.artwork} className={`w-full h-full object-cover rounded-[56px] shadow-2xl transition-all duration-1000 ${isPlaying ? 'scale-100' : 'scale-90 opacity-40 blur-[4px]'}`} />
+              <button 
+                onClick={(e) => { e.stopPropagation(); onToggleFavorite(); }} 
+                className="absolute bottom-5 left-5 p-4 rounded-3xl backdrop-blur-3xl shadow-xl transition-all active:scale-75"
+                style={{ backgroundColor: `${dominantColor}dd` }}
+              >
+                <svg className="w-6 h-6" fill={isFavorite ? "currentColor" : "none"} stroke="white" viewBox="0 0 24 24"><path strokeWidth="3" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
+              </button>
+            </div>
+
+            <div className="text-center landscape:text-left w-full space-y-2">
+              <h2 className="text-2xl landscape:text-3xl font-black truncate px-2">{song.title}</h2>
+              <p className="text-xs landscape:text-sm font-bold opacity-30 uppercase tracking-[0.4em]">{song.artist}</p>
+            </div>
         </div>
 
-        <div className="text-center w-full mt-6 space-y-2">
-          <h2 className="text-2xl landscape:text-3xl font-black truncate px-6">{song.title}</h2>
-          <p className="text-xs landscape:text-sm font-bold opacity-30 uppercase tracking-[0.4em]">{song.artist}</p>
-        </div>
-
-        {/* Action Pills */}
-        <div className="flex gap-4 mt-8">
-            <button onClick={() => setShowLyricsModal(true)} className="px-8 py-3 bg-white/5 rounded-full border border-white/5 hover:bg-white/10 transition-all font-black text-[10px] uppercase tracking-widest">Lyrics</button>
-            <button onClick={() => setShowQueueModal(true)} className="px-8 py-3 bg-white/5 rounded-full border border-white/5 hover:bg-white/10 transition-all font-black text-[10px] uppercase tracking-widest">Queue</button>
+        {/* Action Pills & Sync Lyrics Preview (Portrait Only) */}
+        <div className="flex flex-col items-center gap-4 mt-8 landscape:hidden w-full max-w-sm">
+            <div 
+                onClick={() => setShowLyricsModal(true)}
+                className="w-full bg-white/5 border border-white/5 p-5 rounded-[40px] active:scale-95 transition-all text-center"
+            >
+                <p className="text-[14px] font-bold opacity-80 animate-in fade-in slide-in-from-bottom-1">
+                    {syncedLyrics[currentLineIndex]?.text || "•••"}
+                </p>
+            </div>
+            <div className="flex gap-3 w-full">
+                <button onClick={() => setShowLyricsModal(true)} className="flex-1 py-4 bg-white/10 rounded-full font-black text-[10px] uppercase tracking-widest">Full Lyrics</button>
+                <button onClick={() => setShowQueueModal(true)} className="flex-1 py-4 bg-white/10 rounded-full font-black text-[10px] uppercase tracking-widest">Queue</button>
+            </div>
         </div>
       </main>
 
-      {/* --- GLOBAL GRAPH SCRUBBER (Span bottom) --- */}
+      {/* --- GLOBAL GRAPH SCRUBBER --- */}
       <div 
         className="relative h-16 w-full z-40 bg-transparent cursor-pointer flex flex-col justify-end"
         onClick={(e) => onSeek(((e.clientX - e.currentTarget.getBoundingClientRect().left) / e.currentTarget.offsetWidth) * duration)}
@@ -226,13 +243,9 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
         />
       </div>
 
-      {/* --- UNIVERSAL MODALS (PORTRAIT & LANDSCAPE SINGLE COLUMN) --- */}
+      {/* --- MODALS --- */}
       {showLyricsModal && (
-        <div 
-          className="fixed inset-0 z-[300] bg-black animate-in slide-in-from-bottom duration-500"
-          onTouchStart={handleModalTouchStart}
-          onTouchEnd={(e) => handleModalTouchEnd(e, () => setShowLyricsModal(false))}
-        >
+        <div className="fixed inset-0 z-[300] bg-black animate-in slide-in-from-bottom duration-500">
           <div className="absolute inset-0 opacity-50" style={{ background: `linear-gradient(to bottom, ${dominantColor}, #000)` }} />
           <div className="relative h-full flex flex-col p-10 pt-24 max-w-4xl mx-auto">
             <button onClick={() => setShowLyricsModal(false)} className="absolute top-10 right-10 p-3 bg-white/10 rounded-full hover:bg-white/20 transition-all">
@@ -248,14 +261,10 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
       )}
 
       {showQueueModal && (
-        <div 
-          className="fixed inset-0 z-[300] bg-[#080808] animate-in slide-in-from-bottom duration-500"
-          onTouchStart={handleModalTouchStart}
-          onTouchEnd={(e) => handleModalTouchEnd(e, () => setShowQueueModal(false))}
-        >
+        <div className="fixed inset-0 z-[300] bg-[#080808] animate-in slide-in-from-bottom duration-500">
            <div className="relative h-full flex flex-col p-8 pt-24 max-w-2xl mx-auto">
               <header className="flex justify-between items-center mb-10 px-4">
-                <h3 className="text-[11px] font-black uppercase tracking-[0.5em] opacity-30">Coming Up Next</h3>
+                <h3 className="text-[11px] font-black uppercase tracking-[0.5em] opacity-30">Queue List</h3>
                 <button onClick={() => setShowQueueModal(false)} className="p-3 bg-white/10 rounded-full hover:bg-white/20 transition-all">
                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6"></path></svg>
                 </button>
@@ -267,15 +276,22 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                     draggable 
                     onDragStart={() => (dragItemRef.current = i)}
                     onDragOver={(e) => { e.preventDefault(); if (dragItemRef.current !== null && dragItemRef.current !== i) { onMoveQueueItem(dragItemRef.current, i); dragItemRef.current = i; } }}
-                    className="flex items-center gap-5 p-5 bg-white/5 rounded-[40px] border border-white/5 group hover:bg-white/10 transition-all"
+                    // Swipe to Delete (Mobile Only Implementation)
+                    onTouchStart={(e) => (touchStartRef.current = e.touches[0].clientX)}
+                    onTouchEnd={(e) => {
+                        const diff = touchStartRef.current! - e.changedTouches[0].clientX;
+                        if (Math.abs(diff) > 100) onRemoveFromQueue(qs.id);
+                        touchStartRef.current = null;
+                    }}
+                    className="flex items-center gap-5 p-5 bg-white/5 rounded-[40px] border border-white/5 group hover:bg-white/10 transition-all cursor-move active:scale-95"
                   >
                     <img src={qs.artwork} className="w-14 h-14 rounded-2xl shadow-lg" />
                     <div className="flex-1 min-w-0" onClick={() => {onPlayFromQueue(qs); setShowQueueModal(false);}}>
                       <p className={`text-sm font-black truncate ${qs.id === song.id ? 'text-accent' : ''}`}>{qs.title}</p>
                       <p className="text-[10px] font-bold opacity-30 uppercase">{qs.artist}</p>
                     </div>
-                    <button onClick={() => onRemoveFromQueue(qs.id)} className="p-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                       <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6"></path></svg>
+                    <button onClick={() => onRemoveFromQueue(qs.id)} className="p-3 opacity-40 hover:opacity-100">
+                       <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M6 18L18 6"></path></svg>
                     </button>
                   </div>
                 ))}
@@ -288,4 +304,3 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
 };
 
 export default PlayerFull;
-
