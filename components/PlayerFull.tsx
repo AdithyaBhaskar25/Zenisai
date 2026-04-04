@@ -27,7 +27,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   isFavorite, onToggleFavorite, onDownload, onShare, isShuffle, onToggleShuffle, repeatMode, onToggleRepeat, onShowPlaylistModal
 }) => {
   const [activeTab, setActiveTab] = useState<'player' | 'lyrics' | 'queue'>('player');
-  const [showDropdown, setShowDropdown] = useState(false);
   const [showSleepTimerMenu, setShowSleepTimerMenu] = useState(false);
   const [syncedLyrics, setSyncedLyrics] = useState<LyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState<string[]>([]);
@@ -39,7 +38,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   const dragItemRef = useRef<number | null>(null);
   const touchStartRef = useRef<number | null>(null);
 
-  // --- SWIPE NAVIGATION ---
   const handleTouchStart = (e: React.TouchEvent) => { touchStartRef.current = e.touches[0].clientX; };
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartRef.current === null) return;
@@ -48,7 +46,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     touchStartRef.current = null;
   };
 
-  // --- VISUALIZER LOGIC (Restored) ---
   useEffect(() => {
     if (!analyser || !visualizerCanvasRef.current) return;
     const canvas = visualizerCanvasRef.current;
@@ -57,7 +54,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     let animationId: number;
-
     const draw = () => {
       animationId = requestAnimationFrame(draw);
       analyser.getByteFrequencyData(dataArray);
@@ -66,7 +62,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
       let x = 0;
       for (let i = 0; i < bufferLength; i++) {
         const barHeight = (dataArray[i] / 255) * canvas.height;
-        ctx.fillStyle = dominantColor.replace('rgb', 'rgba').replace(')', `, ${0.2 + (dataArray[i]/255) * 0.4})`);
+        ctx.fillStyle = dominantColor.replace('rgb', 'rgba').replace(')', `, ${0.1 + (dataArray[i]/255) * 0.3})`);
         ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
         x += barWidth + 1;
       }
@@ -75,7 +71,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     return () => cancelAnimationFrame(animationId);
   }, [analyser, dominantColor]);
 
-  // --- LYRIC FETCHING ---
   useEffect(() => {
     const fetchLyrics = async () => {
       if (!song.title) return;
@@ -106,38 +101,34 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   const formatTime = (t: number) => `${Math.floor(t / 60)}:${Math.floor(t % 60).toString().padStart(2, '0')}`;
 
   return (
-    <div 
-      className="fixed inset-0 z-[200] flex flex-col bg-black overflow-hidden animate-in slide-in-from-bottom duration-700"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
+    <div className="fixed inset-0 z-[200] flex flex-col bg-black overflow-hidden animate-in slide-in-from-bottom duration-700" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <div className="absolute inset-0 opacity-30 blur-[120px]" style={{ background: `radial-gradient(circle at center, ${dominantColor}, transparent 70%)` }} />
 
-      <div className="relative z-10 flex flex-col h-full px-6 pt-10 pb-4">
-        <header className="flex justify-between items-center h-10 mb-4">
+      <div className="relative z-10 flex flex-col h-full px-5 pt-10 pb-4">
+        {/* Revamped Header with Direct Action Buttons */}
+        <header className="flex items-center gap-2 mb-4 h-12">
           <button onClick={onClose} className="p-2 bg-white/5 rounded-full"><svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" /></svg></button>
-          <div className="text-center flex-1 px-4"><p className="text-[10px] font-bold text-white/70 truncate uppercase tracking-widest">{song.album || 'Zenisai'}</p></div>
-          <div className="relative">
-            <button onClick={() => { setShowDropdown(!showDropdown); setShowSleepTimerMenu(false); }} className="p-2 bg-white/5 rounded-full"><svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v.01M12 12v.01M12 19v.01" /></svg></button>
-            {showDropdown && (
-              <div className="absolute right-0 top-12 w-52 bg-zinc-900 border border-white/10 rounded-2xl p-2 shadow-2xl z-50">
-                {!showSleepTimerMenu ? (
-                  <div className="space-y-1">
-                    <button onClick={() => { onDownload(); setShowDropdown(false); }} className="w-full flex items-center gap-3 p-3 text-[10px] font-bold uppercase text-white/70 hover:bg-white/5 rounded-xl"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg> Save Track</button>
-                    <button onClick={() => { onShowPlaylistModal(); setShowDropdown(false); }} className="w-full flex items-center gap-3 p-3 text-[10px] font-bold uppercase text-white/70 hover:bg-white/5 rounded-xl"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg> Add to Playlist</button>
-                    <button onClick={() => setShowSleepTimerMenu(true)} className={`w-full flex items-center gap-3 p-3 text-[10px] font-bold uppercase rounded-xl transition-colors ${sleepTimer ? 'text-accent bg-accent/10' : 'text-white/70 hover:bg-white/5'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0" /></svg> Sleep Timer</button>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    <button onClick={() => setShowSleepTimerMenu(false)} className="w-full p-2 text-[8px] font-black uppercase text-white/30 border-b border-white/5 mb-1">Back</button>
-                    {[null, 60, 900, 1800, 3600].map((v) => (
-                      <button key={String(v)} onClick={() => { setSleepTimer(v); setShowDropdown(false); }} className={`w-full text-left p-3 text-[10px] font-bold uppercase rounded-xl ${sleepTimer === v ? 'text-accent' : 'text-white/70 hover:bg-white/5'}`}>{v === null ? 'Off' : v === 60 ? '60 Seconds' : `${v/60} Minutes`}</button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+          
+          <div className="flex-1 text-center min-w-0">
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 leading-none mb-1">Zenisai</p>
+            <p className="text-[10px] font-bold text-white/80 truncate uppercase tracking-widest px-2">{song.title}</p>
           </div>
+
+          <div className="flex items-center gap-1.5">
+            <button onClick={onDownload} className="p-2 bg-white/5 rounded-full active:scale-90 transition-all text-white/60"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
+            <button onClick={onShowPlaylistModal} className="p-2 bg-white/5 rounded-full active:scale-90 transition-all text-white/60"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg></button>
+            <button onClick={() => setShowSleepTimerMenu(!showSleepTimerMenu)} className={`p-2 rounded-full active:scale-90 transition-all ${sleepTimer ? 'bg-accent text-white' : 'bg-white/5 text-white/60'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0" /></svg></button>
+          </div>
+
+          {showSleepTimerMenu && (
+            <div className="absolute right-4 top-14 w-32 bg-zinc-900 border border-white/10 rounded-2xl p-1 shadow-2xl z-50 animate-in fade-in zoom-in-95">
+              {[null, 60, 900, 1800].map(v => (
+                <button key={String(v)} onClick={() => { setSleepTimer(v); setShowSleepTimerMenu(false); }} className={`w-full text-center p-2 text-[9px] font-black uppercase rounded-xl ${sleepTimer === v ? 'text-accent bg-accent/10' : 'text-white/40'}`}>
+                  {v === null ? 'Off' : v === 60 ? '60s' : `${v/60}m`}
+                </button>
+              ))}
+            </div>
+          )}
         </header>
 
         <main className="flex-1 flex flex-col min-h-0">
@@ -163,7 +154,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                     ) : plainLyrics.length > 0 ? (
                       <p className="text-sm font-bold text-white/40 line-clamp-2">{plainLyrics[0]}</p>
                     ) : (
-                      <p className="text-[9px] font-black uppercase tracking-widest text-white/20">Lyrics Unavailable</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-white/20">Lyrics</p>
                     )}
                    </div>
                 </button>
@@ -212,9 +203,10 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
         </main>
 
         <footer className="mt-4 space-y-4 bg-zinc-900/40 backdrop-blur-2xl rounded-[36px] p-5 border border-white/5 shadow-2xl">
+          {/* Progress Bar with Accent Seeker */}
           <div className="relative h-9 w-full bg-white/5 rounded-[18px] overflow-hidden">
             <canvas ref={visualizerCanvasRef} width={400} height={36} className="absolute inset-0 w-full h-full opacity-40 pointer-events-none" />
-            <div className="absolute h-full transition-all duration-300" style={{ width: `${(progress / (duration || 1)) * 100}%`, backgroundColor: `${dominantColor}33` }} />
+            <div className="absolute h-full transition-all duration-300" style={{ width: `${(progress / (duration || 1)) * 100}%`, backgroundColor: 'var(--accent)' }} />
             <input type="range" min="0" max={duration || 100} value={progress} onChange={(e) => onSeek(Number(e.target.value))} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" />
             <div className="absolute inset-0 flex items-center justify-between px-5 pointer-events-none text-[8px] font-black text-white/30 uppercase tracking-widest">
               <span>{formatTime(progress)}</span><span>{formatTime(duration)}</span>
