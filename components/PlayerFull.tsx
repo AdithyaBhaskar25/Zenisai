@@ -285,21 +285,25 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                 <h2 className="text-3xl font-black tracking-tighter truncate leading-tight text-white mb-1.5">{song.title}</h2>
                 <p className="text-[11px] text-white/40 font-black uppercase tracking-[0.5em] truncate">{song.artist}</p>
   
-            {/* --- ADD THIS BLOCK --- */}
-<div className="mt-6 h-12 flex items-center justify-center overflow-hidden w-full px-4">
+          {/* --- UPDATED LYRIC BLOCK --- */}
+<div className="mt-6 min-h-[60px] flex items-center justify-center w-full px-4 relative">
   {syncedLyrics.length > 0 && currentLineIndex !== -1 ? (
     <p 
-      key={currentLineIndex} // Key ensures animation re-triggers on line change
-      className="text-lg font-bold text-white text-center animate-in fade-in slide-in-from-bottom-2 duration-500 line-clamp-2"
-      style={{ textShadow: `0 0 20px ${dominantColor}66` }}
+      key={`lyric-${currentLineIndex}`} // Unique key triggers the animation
+      className="text-lg font-bold text-white text-center animate-in fade-in slide-in-from-bottom-3 duration-500 leading-tight break-words max-w-prose"
+      style={{ 
+        textShadow: `0 0 15px ${dominantColor}88`,
+        WebkitFontSmoothing: 'antialiased'
+      }}
     >
       {syncedLyrics[currentLineIndex].text}
     </p>
   ) : (
-    <div className="h-[2px] w-12 bg-white/10 rounded-full" /> 
+    <div className="h-[2px] w-8 bg-white/10 rounded-full animate-pulse" />
   )}
 </div>
-{/* ---------------------- */}
+{/* --------------------------- */}
+
 
 </div>
             </div>
