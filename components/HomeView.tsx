@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+Import React, { useEffect, useState } from 'react';
 import { Song } from '../types';
 import { saavnService } from '../services/saavnService';
 
@@ -42,138 +42,94 @@ const HomeView: React.FC<HomeViewProps> = ({ onPlay, currentSong, isPlaying, onA
   }, [currentSong?.id]);
 
   if (loading && tamilHits.length === 0) return (
-    <div className="flex h-screen items-center justify-center bg-black">
-      <div className="relative">
-        <div className="w-16 h-16 border-2 border-white/5 rounded-full"></div>
-        <div className="absolute top-0 w-16 h-16 border-t-2 border-accent rounded-full animate-spin"></div>
-        <p className="absolute -bottom-10 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.4em] text-white/40">Initializing Zenisai</p>
+    <div className="flex h-[80vh] items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-[5px] border-accent border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-accent/50 animate-pulse">Curating your vibe</p>
       </div>
     </div>
   );
 
   const SongCard = ({ song, list }: { song: Song, list: Song[] }) => (
-    <div className="flex-shrink-0 w-40 sm:w-48 group relative transition-all duration-500 ease-out">
-      {/* Artwork Container */}
-      <div 
-        className="relative aspect-square rounded-3xl overflow-hidden bg-zinc-900 shadow-2xl transition-all duration-500 group-hover:-translate-y-2 group-hover:shadow-[0_20px_50px_rgba(0,0,0,1)] cursor-pointer"
-        onClick={() => onPlay(song, list)}
-      >
-        <img 
-          src={song.artwork} 
-          className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
-          alt={song.title}
-        />
-        
-        {/* Overlay Play State */}
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
-           <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/20">
-              <svg className="w-6 h-6 text-white translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
-           </div>
+    <div className="flex-shrink-0 w-44 space-y-4 group relative">
+      <div className="relative aspect-square rounded-[48px] overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.6)] transition-all duration-700 hover:scale-[1.04] active:scale-95 group shadow-black/80" onClick={() => onPlay(song, list)}>
+        <img src={song.artwork} className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110" />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+           <svg className="w-12 h-12 text-white/80" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
         </div>
-
-        {/* Current Playing Indicator */}
         {currentSong?.id === song.id && isPlaying && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
-             <div className="flex gap-1 items-end h-6">
-                <div className="w-1 bg-accent animate-[bounce_1s_infinite] h-3"></div>
-                <div className="w-1 bg-accent animate-[bounce_1s_infinite_0.2s] h-6"></div>
-                <div className="w-1 bg-accent animate-[bounce_1s_infinite_0.4s] h-4"></div>
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center">
+             <div className="flex gap-1.5 items-end h-8">
+                <div className="w-1.5 h-3 bg-accent animate-bounce shadow-accent"></div>
+                <div className="w-1.5 h-7 bg-accent animate-bounce shadow-accent [animation-delay:0.2s]"></div>
+                <div className="w-1.5 h-4 bg-accent animate-bounce shadow-accent [animation-delay:0.4s]"></div>
              </div>
           </div>
         )}
       </div>
-
-      {/* Floating Action Buttons */}
-      <div className="absolute top-2 right-2 flex flex-col gap-1.5 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-2 group-hover:translate-x-0 z-20">
-        <button onClick={(e) => { e.stopPropagation(); onDownload(song); }} className="p-2.5 bg-black/80 backdrop-blur-xl rounded-xl text-white/60 border border-white/5 hover:text-white transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></button>
-        <button onClick={(e) => { e.stopPropagation(); onAddClick(song); }} className="p-2.5 bg-black/80 backdrop-blur-xl rounded-xl text-white/60 border border-white/5 hover:text-white transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg></button>
+      <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
+        <button onClick={(e) => { e.stopPropagation(); onDownload(song); }} className="p-3 bg-black/60 backdrop-blur-2xl rounded-2xl text-white/80 border border-white/10 shadow-2xl hover:text-accent hover:bg-black/80 transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></button>
+        <button onClick={(e) => { e.stopPropagation(); onAddClick(song); }} className="p-3 bg-black/60 backdrop-blur-2xl rounded-2xl text-white/80 border border-white/10 shadow-2xl hover:text-accent hover:bg-black/80 transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"></path></svg></button>
       </div>
-
-      {/* Metadata */}
-      <div className="mt-4 px-1" onClick={() => onPlay(song, list)}>
-        <p className={`font-bold text-sm truncate transition-colors ${currentSong?.id === song.id ? 'text-accent' : 'text-zinc-100'}`}>{song.title}</p>
-        <p className="text-zinc-500 text-[10px] font-medium truncate mt-1 tracking-wide">{song.artist}</p>
+      <div className="px-3" onClick={() => onPlay(song, list)}>
+        <p className={`font-black text-[13px] truncate tracking-tight mb-0.5 leading-none ${currentSong?.id === song.id ? 'text-accent' : 'text-white/90'}`}>{song.title}</p>
+        <p className="text-white/20 text-[9px] font-black uppercase tracking-[0.2em]">{song.artist}</p>
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-black text-white pb-32">
-      {/* Background Ambient Glow */}
-      <div 
-        className="fixed top-0 left-0 right-0 h-[50vh] opacity-20 pointer-events-none transition-all duration-1000"
-        style={{ 
-          background: `radial-gradient(circle at 50% -20%, ${currentSong ? 'var(--color-primary)' : '#333'} 0%, transparent 70%)` 
-        }}
-      />
+    <div className="p-10 pt-14 space-y-16 relative z-10">
+      <header className="flex flex-col gap-2">
+        <h1 className="text-7xl font-black tracking-tighter leading-none italic bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-white/20">Zenisai</h1>
+        <div className="flex items-center gap-3">
+          <div className="h-[2px] w-8 bg-accent shadow-accent rounded-full"></div>
+          <p className="text-accent text-[10px] font-black uppercase tracking-[0.6em] drop-shadow-[0_0_10px_rgba(var(--color-primary),0.5)]">AI Sonic Experience</p>
+        </div>
+      </header>
 
-      <div className="relative z-10 px-6 sm:px-10 pt-20 space-y-16">
-        {/* Header Section */}
-        <header className="flex flex-col gap-4 animate-in fade-in slide-in-from-top-4 duration-1000">
-          <h1 className="text-6xl sm:text-8xl font-black tracking-tighter italic leading-none">
-            Zenisai<span className="text-accent">.</span>
-          </h1>
-          <div className="flex items-center gap-4">
-            <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black uppercase tracking-[0.3em] text-white/60">
-              Personalized Discovery
-            </span>
+      {recommended.length > 0 && (
+        <section>
+          <div className="flex justify-between items-end mb-8 px-1">
+            <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">
+              {currentSong ? `Inspired by your vibe` : "Top Pick For You"}
+            </h2>
+            <div className="h-[1px] flex-1 mx-6 bg-white/5"></div>
           </div>
-        </header>
+          <div className="flex gap-8 overflow-x-auto pb-10 no-scrollbar">
+            {recommended.map((song) => (
+              <SongCard key={song.id} song={song} list={recommended} />
+            ))}
+          </div>
+        </section>
+      )}
 
-        {/* Sections Wrapper */}
-        <div className="space-y-20">
-          {[
-            { title: "Inspired by your vibe", data: recommended, show: recommended.length > 0 },
-            { title: "Regional Discovery", data: tamilHits, show: true },
-            { title: "Global Anthems", data: englishHits, show: true },
-          ].map((section, idx) => section.show && (
-            <section key={idx} className="group/section">
-              <div className="flex items-baseline gap-4 mb-6">
-                <h2 className="text-[10px] font-bold uppercase tracking-[0.5em] text-zinc-600 group-hover/section:text-zinc-400 transition-colors">
-                  {section.title}
-                </h2>
-                <div className="h-[1px] flex-1 bg-zinc-900"></div>
-              </div>
-              
-              {/* Horizontal Scroll with Masking for Smooth Ends */}
-              <div className="relative -mx-6 px-6 sm:-mx-10 sm:px-10">
-                <div className="flex gap-6 overflow-x-auto pb-6 no-scrollbar mask-edge-fade">
-                  {section.data.map((song) => (
-                    <SongCard key={song.id} song={song} list={section.data} />
-                  ))}
-                  {/* Padding item for end of scroll */}
-                  <div className="flex-shrink-0 w-10"></div>
-                </div>
-              </div>
-            </section>
+      <section>
+        <div className="flex justify-between items-end mb-8 px-1">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">Regional Discovery</h2>
+          <div className="h-[1px] flex-1 mx-6 bg-white/5"></div>
+        </div>
+        <div className="flex gap-8 overflow-x-auto pb-10 no-scrollbar">
+          {tamilHits.map((song) => (
+            <SongCard key={song.id} song={song} list={tamilHits} />
           ))}
         </div>
-      </div>
+      </section>
 
-      <style dangerouslySetInnerHTML={{ __html: `
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* This creates the smooth fade at the edges of the horizontal scroll */
-        .mask-edge-fade {
-          mask-image: linear-gradient(
-            to right, 
-            transparent, 
-            black 5%, 
-            black 95%, 
-            transparent
-          );
-          -webkit-mask-image: linear-gradient(
-            to right, 
-            transparent, 
-            black 5%, 
-            black 95%, 
-            transparent
-          );
-        }
-      `}} />
+      <section>
+        <div className="flex justify-between items-end mb-8 px-1">
+          <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">Global Anthems</h2>
+          <div className="h-[1px] flex-1 mx-6 bg-white/5"></div>
+        </div>
+        <div className="flex gap-8 overflow-x-auto pb-10 no-scrollbar">
+          {englishHits.map((song) => (
+            <SongCard key={song.id} song={song} list={englishHits} />
+          ))}
+        </div>
+      </section>
     </div>
   );
 };
 
 export default HomeView;
+
