@@ -116,6 +116,16 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     return -1;
   }, [syncedLyrics, progress]);
 
+  // --- LYRIC AUTOSCROLL LOGIC ---
+  useEffect(() => {
+    if (activeTab === 'lyrics' && activeLyricRef.current) {
+      activeLyricRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }
+  }, [currentLineIndex, activeTab]);
+
   // --- ORIGINAL VISUALIZER LOGIC ---
   useEffect(() => {
     if (!analyser || !visualizerCanvasRef.current) return;
@@ -248,10 +258,17 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
           )}
 
           {activeTab === 'lyrics' && (
-             <div className="h-full overflow-y-auto no-scrollbar text-center py-6">
+             <div ref={lyricsScrollRef} className="h-full overflow-y-auto no-scrollbar text-center py-6">
                <div className="space-y-8 px-6 pb-20">
                  {syncedLyrics.length > 0 ? syncedLyrics.map((l, i) => (
-                   <p key={i} onClick={() => onSeek(l.time)} className={`text-xl font-black transition-all duration-700 ${i === currentLineIndex ? 'text-white scale-110' : 'text-white/20'}`}>{l.text}</p>
+                   <p 
+                    key={i} 
+                    ref={i === currentLineIndex ? activeLyricRef : null}
+                    onClick={() => onSeek(l.time)} 
+                    className={`text-xl font-black transition-all duration-700 ${i === currentLineIndex ? 'text-white scale-110' : 'text-white/20'}`}
+                   >
+                    {l.text}
+                   </p>
                  )) : plainLyrics.map((l, i) => <p key={i} className="text-lg font-bold text-white/30 py-1">{l}</p>)}
                </div>
              </div>
