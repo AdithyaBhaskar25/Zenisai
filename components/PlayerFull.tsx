@@ -177,22 +177,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     return () => cancelAnimationFrame(animationId);
   }, [analyser, dominantColor]);
 
-  const dragItemRef = useRef<number | null>(null);
-  const handleQueueTouchStart = (index: number) => { dragItemRef.current = index; };
-  const handleQueueTouchMove = (e: React.TouchEvent) => {
-    if (dragItemRef.current === null) return;
-    const touch = e.touches[0];
-    const target = document.elementFromPoint(touch.clientX, touch.clientY);
-    const row = target?.closest('[data-queue-index]');
-    if (row) {
-      const targetIndex = parseInt(row.getAttribute('data-queue-index') || '-1');
-      if (targetIndex !== -1 && targetIndex !== dragItemRef.current) {
-        onMoveQueueItem(dragItemRef.current, targetIndex);
-        dragItemRef.current = targetIndex; 
-      }
-    }
-  };
-
   const handleTouchStart = (e: React.TouchEvent) => touchStartRef.current = e.touches[0].clientX;
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartRef.current === null) return;
@@ -213,43 +197,40 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     <div className="fixed inset-0 z-[200] flex flex-col bg-black overflow-hidden animate-in slide-in-from-bottom duration-700 cubic-bezier(0.23, 1, 0.32, 1)">
       <div className="absolute inset-0 opacity-40 blur-[200px] transition-all duration-1000 animate-pulse" style={{ background: `radial-gradient(circle at center, ${dominantColor}, transparent 80%)` }} />
 
-      <div className="relative z-10 flex flex-col h-full px-6 pt-12 pb-6">
-        <header className="flex justify-between items-center mb-6">
-          <button onClick={onClose} className="p-3 bg-white/5 rounded-full text-white/70 active:scale-[0.85] transition-all hover:bg-white/10 shadow-lg">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
+      <div className="relative z-10 flex flex-col h-full px-6 pt-10 pb-4">
+        <header className="flex justify-between items-center mb-4">
+          <button onClick={onClose} className="p-2.5 bg-white/5 rounded-full text-white/70 active:scale-[0.85] transition-all hover:bg-white/10 shadow-lg">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M19 9l-7 7-7-7"></path></svg>
           </button>
           <div className="flex-1 text-center">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-white/30 mb-0.5 leading-none">Zenisai</p>
-            <p className="text-[11px] font-bold text-white/80 truncate max-w-[150px] mx-auto uppercase tracking-widest">{song.album}</p>
+            <p className="text-[9px] font-black uppercase tracking-[0.4em] text-white/30 mb-0.5 leading-none">Zenisai</p>
+            <p className="text-[10px] font-bold text-white/80 truncate max-w-[150px] mx-auto uppercase tracking-widest">{song.album}</p>
           </div>
           <div className="relative">
-            <button onClick={() => { setShowDropdown(!showDropdown); setShowSleepTimerMenu(false); }} className={`p-3 bg-white/5 rounded-full text-white/70 active:scale-[0.85] transition-all hover:bg-white/10 ${showDropdown ? 'text-accent' : ''} shadow-lg`}>
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+            <button onClick={() => { setShowDropdown(!showDropdown); setShowSleepTimerMenu(false); }} className={`p-2.5 bg-white/5 rounded-full text-white/70 active:scale-[0.85] transition-all hover:bg-white/10 ${showDropdown ? 'text-accent' : ''} shadow-lg`}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
             </button>
             {showDropdown && (
-              <div className="absolute right-0 top-14 w-48 bg-zinc-900/95 backdrop-blur-3xl border border-white/10 rounded-[32px] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.8)] animate-in fade-in slide-in-from-top-3 duration-500 z-50">
+              <div className="absolute right-0 top-12 w-44 bg-zinc-900/95 backdrop-blur-3xl border border-white/10 rounded-[28px] p-2 shadow-2xl z-50">
                 {!showSleepTimerMenu ? (
                   <div className="space-y-1">
-                    <button onClick={() => { onDownload(); setShowDropdown(false); }} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/10 text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white transition-all">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Save
+                    <button onClick={() => { onDownload(); setShowDropdown(false); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white/70">
+                       Save
                     </button>
-                    <button onClick={() => { onShowPlaylistModal(); setShowDropdown(false); }} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/10 text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white transition-all">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg> Add
+                    <button onClick={() => { onShowPlaylistModal(); setShowDropdown(false); }} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white/70">
+                       Add
                     </button>
-                    <button onClick={() => { onShare(); setShowDropdown(false); }} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/10 text-[10px] font-black uppercase tracking-widest text-white/70 hover:text-white transition-all">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path></svg> Share
-                    </button>
-                    <button onClick={() => setShowSleepTimerMenu(true)} className={`w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all ${sleepTimer ? 'text-accent' : 'text-white/70 hover:text-white'}`}>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> Sleep Timer
+                    <button onClick={() => setShowSleepTimerMenu(true)} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white/70">
+                       Sleep Timer
                     </button>
                   </div>
                 ) : (
-                  <div className="animate-in slide-in-from-right-4 duration-500 space-y-1">
-                    <button onClick={() => setShowSleepTimerMenu(false)} className="w-full flex items-center gap-3 p-3 rounded-2xl hover:bg-white/10 text-[9px] font-black uppercase tracking-widest text-white/30 border-b border-white/5 mb-1">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 19l-7-7 7-7"></path></svg> Back
+                  <div className="space-y-1">
+                    <button onClick={() => setShowSleepTimerMenu(false)} className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/10 text-[8px] font-black uppercase text-white/30 border-b border-white/5 mb-1">
+                      Back
                     </button>
-                    {[null, 900, 1800, 2700, 3600].map(val => (
-                      <button key={String(val)} onClick={() => { setSleepTimer(val); setShowDropdown(false); }} className={`w-full text-left p-3 rounded-2xl hover:bg-white/10 text-[10px] font-black uppercase tracking-widest transition-all ${sleepTimer === val ? 'text-accent' : 'text-white/70'}`}>
+                    {[null, 900, 1800, 3600].map(val => (
+                      <button key={String(val)} onClick={() => { setSleepTimer(val); setShowDropdown(false); }} className="w-full text-left p-2.5 rounded-xl hover:bg-white/10 text-[9px] font-black uppercase text-white/70">
                         {val === null ? 'Off' : `${val/60} Min`}
                       </button>
                     ))}
@@ -262,63 +243,61 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
 
         <div className="flex-1 overflow-hidden relative flex flex-col items-center">
           {activeTab === 'player' && (
-            <div className="flex-1 flex flex-col w-full justify-between py-2 animate-in fade-in zoom-in-95 duration-700">
-              {/* 1. Artwork Section */}
-              <div className="flex-1 flex items-center justify-center min-h-0 px-8">
+            <div className="flex-1 flex flex-col w-full animate-in fade-in zoom-in-95 duration-700">
+              {/* Artwork - Optimized Size */}
+              <div className="flex-[4] flex items-center justify-center min-h-0 px-10">
                 <div 
-                  className="relative aspect-square w-full max-w-[250px] bg-white/[0.03] backdrop-blur-2xl rounded-[44px] p-3.5 border border-white/10 shadow-[0_40px_90px_rgba(0,0,0,0.6)] select-none" 
+                  className="relative aspect-square w-full max-w-[210px] bg-white/[0.03] backdrop-blur-2xl rounded-[40px] p-3 border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.6)] select-none" 
                   onTouchStart={handleTouchStart} 
                   onTouchEnd={handleTouchEnd}
                 >
                   <img 
                     src={song.artwork} 
-                    className={`w-full h-full rounded-[32px] object-cover transition-all duration-1000 pointer-events-none ${isPlaying ? 'scale-100' : 'opacity-40 grayscale scale-95'}`} 
+                    className={`w-full h-full rounded-[28px] object-cover transition-all duration-1000 pointer-events-none ${isPlaying ? 'scale-100' : 'opacity-40 grayscale scale-95'}`} 
                     alt={song.title}
                   />
                   <button 
                     onClick={onToggleFavorite} 
-                    className={`absolute top-7 right-7 p-2.5 rounded-full transition-all duration-500 shadow-lg ${isFavorite ? 'bg-accent text-white' : 'bg-black/50 text-white/40'}`}
+                    className={`absolute top-6 right-6 p-2 rounded-full transition-all duration-500 shadow-lg ${isFavorite ? 'bg-accent text-white' : 'bg-black/50 text-white/40'}`}
                   >
-                    <svg className="w-5 h-5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                     </svg>
                   </button>
                 </div>
               </div>
 
-              {/* 2. Metadata Section */}
-              <div className="mt-4 text-center px-8 w-full">
-                <h2 className="text-2xl font-black tracking-tight truncate leading-tight text-white mb-0.5">
-                  {song.title}
-                </h2>
-                <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.4em] truncate mb-6">
-                  {song.artist}
-                </p>
+              {/* Dynamic Content Section - More Space Here */}
+              <div className="flex-[5] flex flex-col items-center text-center px-8 w-full">
+                <div className="mb-4">
+                  <h2 className="text-2xl font-black tracking-tight truncate leading-tight text-white mb-0.5">
+                    {song.title}
+                  </h2>
+                  <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.4em] truncate">
+                    {song.artist}
+                  </p>
+                </div>
 
-                {/* 3. Interactive Lyric Card */}
+                {/* Lyric Card - Primary Focus */}
                 <button 
                   onClick={() => setActiveTab('lyrics')}
-                  className="w-full group relative overflow-hidden bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 rounded-[32px] p-6 transition-all duration-300 active:scale-[0.98] shadow-2xl"
+                  className="w-full group relative overflow-hidden bg-white/[0.04] border border-white/5 rounded-[32px] p-6 transition-all duration-300 active:scale-[0.98] min-h-[140px] flex items-center justify-center"
                 >
-                  <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity duration-500" style={{ background: `radial-gradient(circle at center, ${dominantColor}, transparent 150%)` }} />
-                  <div className="relative z-10 flex flex-col items-center justify-center min-h-[60px]">
+                  <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity" style={{ background: `radial-gradient(circle at center, ${dominantColor}, transparent 150%)` }} />
+                  <div className="relative z-10 w-full">
                     {syncedLyrics.length > 0 && currentLineIndex !== -1 ? (
-                      <p key={`synced-${currentLineIndex}`} className="text-lg font-bold text-white leading-tight break-words animate-in fade-in slide-in-from-bottom-2 duration-500 line-clamp-2">
+                      <p key={`synced-${currentLineIndex}`} className="text-xl font-bold text-white leading-tight break-words animate-in fade-in slide-in-from-bottom-2 duration-500">
                         {syncedLyrics[currentLineIndex].text}
                       </p>
                     ) : plainLyrics.length > 0 ? (
-                      <div className="space-y-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                        <p className="text-sm font-bold text-white line-clamp-1">{plainLyrics[0]}</p>
-                        {plainLyrics[1] && <p className="text-xs font-bold text-white/60 line-clamp-1">{plainLyrics[1]}</p>}
+                      <div className="space-y-1.5 opacity-60">
+                        <p className="text-base font-bold text-white line-clamp-2">{plainLyrics[0]}</p>
+                        {plainLyrics[1] && <p className="text-sm font-bold text-white/50 line-clamp-1">{plainLyrics[1]}</p>}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center gap-2 opacity-20">
-                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Lyrics</p>
-                         <div className="flex gap-1"><span className="w-1 h-1 rounded-full bg-white animate-pulse" /><span className="w-1 h-1 rounded-full bg-white animate-pulse [animation-delay:0.2s]" /></div>
-                      </div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20">Lyrics</p>
                     )}
                   </div>
-                  <div className="absolute bottom-2 right-6 opacity-0 group-hover:opacity-40 transition-all duration-500 translate-y-1 group-hover:translate-y-0"><svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg></div>
                 </button>
               </div>
             </div>
@@ -328,7 +307,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
             <div ref={lyricsScrollRef} className="h-full w-full overflow-y-auto no-scrollbar text-center py-16 animate-in slide-in-from-bottom-8 duration-700 select-none">
               <div className="space-y-10 px-10 pb-40">
                 {isLoadingLyrics ? (
-                   <p className="text-white/20 text-[10px] font-black uppercase animate-pulse tracking-widest">Searching LRCLIB...</p>
+                   <p className="text-white/20 text-[10px] font-black uppercase animate-pulse tracking-widest">Searching...</p>
                 ) : syncedLyrics.length > 0 ? (
                   syncedLyrics.map((line, i) => (
                     <p key={i} ref={i === currentLineIndex ? activeLyricRef : null} onClick={() => onSeek(line.time)} className={`text-2xl font-black transition-all duration-700 leading-tight cursor-pointer ${i === currentLineIndex ? 'text-white scale-110 opacity-100' : 'text-white/20 hover:text-white/40'}`}>
@@ -345,21 +324,15 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
           )}
 
           {activeTab === 'queue' && (
-            <div className="h-full w-full overflow-y-auto no-scrollbar py-6 animate-in slide-in-from-bottom-8 duration-700">
-              <div className="space-y-3 pb-32 px-2" onTouchMove={handleQueueTouchMove} onTouchEnd={() => { dragItemRef.current = null; }}>
+            <div className="h-full w-full overflow-y-auto no-scrollbar py-4 animate-in slide-in-from-bottom-8 duration-700">
+              <div className="space-y-2.5 pb-32 px-2">
                 {queue.map((qs, i) => (
-                    <div key={qs.id} data-queue-index={i} className={`flex items-center gap-4 p-3.5 rounded-[32px] border transition-all duration-300 relative group ${qs.id === song.id ? 'bg-white/10 border-white/20' : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.07]'}`}>
-                      <div className="p-2 -ml-2 text-white/20 touch-none cursor-grab active:cursor-grabbing" onTouchStart={() => handleQueueTouchStart(i)}>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8h16M4 16h16"></path></svg>
-                      </div>
-                      <img src={qs.artwork} className="w-12 h-12 rounded-xl object-cover pointer-events-none" />
+                    <div key={qs.id} data-queue-index={i} className={`flex items-center gap-4 p-3 rounded-[24px] border transition-all duration-300 ${qs.id === song.id ? 'bg-white/10 border-white/20' : 'bg-white/[0.02] border-white/5'}`}>
+                      <img src={qs.artwork} className="w-10 h-10 rounded-lg object-cover" />
                       <div className="flex-1 min-w-0" onClick={() => onPlayFromQueue(qs)}>
-                        <p className={`text-[13px] font-black truncate leading-tight ${qs.id === song.id ? 'text-accent' : 'text-white'}`}>{qs.title}</p>
-                        <p className="text-[9px] text-white/30 uppercase font-black tracking-widest mt-0.5">{qs.artist}</p>
+                        <p className={`text-[12px] font-black truncate ${qs.id === song.id ? 'text-accent' : 'text-white'}`}>{qs.title}</p>
+                        <p className="text-[8px] text-white/30 uppercase font-black tracking-widest">{qs.artist}</p>
                       </div>
-                      <button onClick={() => onRemoveFromQueue(qs.id)} className="p-2 text-white/10 hover:text-red-500 active:scale-75 transition-all">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
-                      </button>
                     </div>
                 ))}
               </div>
@@ -367,46 +340,37 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
           )}
         </div>
 
-        <footer className="mt-8 space-y-5 bg-zinc-900/50 backdrop-blur-3xl rounded-[44px] p-4 border border-white/5 shadow-2xl">
-          <div className="space-y-2 relative">
-             <div className="relative h-12 w-full bg-white/5 rounded-[20px] overflow-hidden group border border-white/5">
-               <canvas ref={visualizerCanvasRef} width={400} height={48} className="absolute inset-0 w-full h-full opacity-30 pointer-events-none" />
-               <div className="absolute h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: dominantColor.replace('rgb', 'rgba').replace(')', ', 0.1)') }} />
-               <input type="range" min="0" max={duration || 100} value={progress} onChange={(e) => onSeek(Number(e.target.value))} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" />
-               <div className="absolute inset-0 flex items-center justify-between px-6 pointer-events-none">
-                 <span className="text-[10px] font-black text-white/20 tracking-[0.2em]">{formatTime(progress)}</span>
-                 <div className="flex gap-1 items-end h-3">
-                   {[...Array(6)].map((_, i) => (
-                     <div key={i} className={`w-[2px] rounded-full transition-all duration-300 ${isPlaying ? 'animate-bounce' : 'h-1'}`} style={{ height: isPlaying ? `${6 + Math.random() * 8}px` : '3px', animationDelay: `${i * 0.1}s`, backgroundColor: dominantColor }} />
-                   ))}
-                 </div>
-                 <span className="text-[10px] font-black text-white/20 tracking-[0.2em]">{formatTime(duration)}</span>
-               </div>
+        {/* Footer - Reduced Size Component */}
+        <footer className="mt-4 space-y-4 bg-zinc-900/40 backdrop-blur-3xl rounded-[36px] p-3.5 border border-white/5 shadow-2xl">
+          <div className="relative h-10 w-full bg-white/5 rounded-[16px] overflow-hidden group border border-white/5">
+             <canvas ref={visualizerCanvasRef} width={400} height={40} className="absolute inset-0 w-full h-full opacity-30 pointer-events-none" />
+             <div className="absolute h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: dominantColor.replace('rgb', 'rgba').replace(')', ', 0.15)') }} />
+             <input type="range" min="0" max={duration || 100} value={progress} onChange={(e) => onSeek(Number(e.target.value))} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" />
+             <div className="absolute inset-0 flex items-center justify-between px-4 pointer-events-none text-[9px] font-black text-white/25 uppercase tracking-widest">
+               <span>{formatTime(progress)}</span>
+               <span>{formatTime(duration)}</span>
              </div>
           </div>
 
-          <div className="flex items-center justify-between px-2">
-            <button onClick={onToggleShuffle} className={`p-2.5 rounded-full transition-all duration-500 ${isShuffle ? 'text-accent' : 'text-white/20'}`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+          <div className="flex items-center justify-between px-1">
+            <button onClick={onToggleShuffle} className={`p-2 transition-all ${isShuffle ? 'text-accent' : 'text-white/20'}`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
             </button>
-            <div className="flex items-center gap-4">
-              <button onClick={onPrev} className="text-white/30 p-2 active:scale-[0.85] transition-all"><svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg></button>
-              <button onClick={onToggle} className="w-14 h-14 flex items-center justify-center bg-white text-black rounded-full active:scale-[0.85] transition-all shadow-xl">
-                {isPlaying ? <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg> : <svg className="w-7 h-7 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>}
+            <div className="flex items-center gap-5">
+              <button onClick={onPrev} className="text-white/30 p-2 active:scale-90 transition-all"><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" /></svg></button>
+              <button onClick={onToggle} className="w-12 h-12 flex items-center justify-center bg-white text-black rounded-full active:scale-90 transition-all shadow-xl">
+                {isPlaying ? <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" /></svg> : <svg className="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>}
               </button>
-              <button onClick={onNext} className="text-white/30 p-2 active:scale-[0.85] transition-all"><svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg></button>
+              <button onClick={onNext} className="text-white/30 p-2 active:scale-90 transition-all"><svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg></button>
             </div>
-            <button onClick={onToggleRepeat} className={`p-2.5 rounded-full transition-all duration-500 ${repeatMode !== 'off' ? 'text-accent' : 'text-white/20'}`}>
-              <div className="relative">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                {repeatMode === 'one' && <span className="absolute -top-1 -right-1 text-[7px] bg-accent text-white rounded-full w-3.5 h-3.5 flex items-center justify-center border-2 border-zinc-900 font-black">1</span>}
-              </div>
+            <button onClick={onToggleRepeat} className={`p-2 transition-all ${repeatMode !== 'off' ? 'text-accent' : 'text-white/20'}`}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
             </button>
           </div>
 
-          <div className="flex bg-white/5 rounded-[28px] p-1 border border-white/5">
+          <div className="flex bg-white/5 rounded-[22px] p-1 border border-white/5">
             {['player', 'lyrics', 'queue'].map(t => (
-              <button key={t} onClick={() => setActiveTab(t as any)} className={`flex-1 py-2.5 rounded-[22px] text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${activeTab === t ? 'bg-white text-black shadow-lg' : 'text-white/20 hover:text-white/40'}`}>
+              <button key={t} onClick={() => setActiveTab(t as any)} className={`flex-1 py-2 rounded-[18px] text-[9px] font-black uppercase tracking-widest transition-all ${activeTab === t ? 'bg-white text-black' : 'text-white/20'}`}>
                 {t}
               </button>
             ))}
