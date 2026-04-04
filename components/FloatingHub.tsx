@@ -1,4 +1,4 @@
-Import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Song, AppView } from '../types';
 import Visualizer from './Visualizer';
 
