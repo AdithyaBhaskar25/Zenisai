@@ -273,41 +273,66 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
         </header>
 
         <div className="flex-1 overflow-hidden relative flex flex-col items-center">
-          {activeTab === 'player' && (
-            <div className="flex-1 flex flex-col justify-center items-center w-full animate-in fade-in zoom-in-95 duration-700">
-              <div className="w-full max-w-[240px] bg-white/[0.03] backdrop-blur-2xl rounded-[48px] p-4 border border-white/10 shadow-[0_30px_80px_rgba(0,0,0,0.8)] relative select-none" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-                <img src={song.artwork} className={`w-full aspect-square rounded-[36px] object-cover transition-all duration-700 pointer-events-none ${isPlaying ? 'scale-100' : 'opacity-40 grayscale scale-95'}`} />
-                <button onClick={onToggleFavorite} className={`absolute top-8 right-8 p-2.5 rounded-full transition-all duration-700 ${isFavorite ? 'bg-accent text-white shadow-accent' : 'bg-black/40 text-white/40 active:scale-[0.8]'}`}>
-                  <svg className="w-5 h-5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
-                </button>
-              </div>
-              <div className="mt-8 text-center px-6 w-full animate-in slide-in-from-bottom-2 duration-700 delay-200">
-                <h2 className="text-3xl font-black tracking-tighter truncate leading-tight text-white mb-1.5">{song.title}</h2>
-                <p className="text-[11px] text-white/40 font-black uppercase tracking-[0.5em] truncate">{song.artist}</p>
-  
-          {/* --- UPDATED LYRIC BLOCK --- */}
-<div className="mt-6 min-h-[60px] flex items-center justify-center w-full px-4 relative">
-  {syncedLyrics.length > 0 && currentLineIndex !== -1 ? (
-    <p 
-      key={`lyric-${currentLineIndex}`} // Unique key triggers the animation
-      className="text-lg font-bold text-white text-center animate-in fade-in slide-in-from-bottom-3 duration-500 leading-tight break-words max-w-prose"
-      style={{ 
-        textShadow: `0 0 15px ${dominantColor}88`,
-        WebkitFontSmoothing: 'antialiased'
-      }}
-    >
-      {syncedLyrics[currentLineIndex].text}
-    </p>
-  ) : (
-    <div className="h-[2px] w-8 bg-white/10 rounded-full animate-pulse" />
-  )}
-</div>
-{/* --------------------------- */}
+           {activeTab === 'player' && (
+  <div className="flex-1 flex flex-col w-full animate-in fade-in zoom-in-95 duration-700">
+    {/* 1. Artwork Container - Slightly smaller to make room */}
+    <div className="flex-[2] flex items-center justify-center min-h-0">
+      <div 
+        className="relative aspect-square w-full max-w-[220px] bg-white/[0.03] backdrop-blur-2xl rounded-[40px] p-3 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] select-none" 
+        onTouchStart={handleTouchStart} 
+        onTouchEnd={handleTouchEnd}
+      >
+        <img 
+          src={song.artwork} 
+          alt=""
+          className={`w-full h-full rounded-[32px] object-cover transition-all duration-1000 pointer-events-none ${isPlaying ? 'scale-100' : 'opacity-40 grayscale scale-90'}`} 
+        />
+        <button 
+          onClick={onToggleFavorite} 
+          className={`absolute top-6 right-6 p-2 rounded-full transition-all duration-500 ${isFavorite ? 'bg-accent text-white' : 'bg-black/40 text-white/40'}`}
+        >
+          <svg className="w-5 h-5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
 
+    {/* 2. Info & Lyrics Container - Flex-grow allows this to take all remaining space */}
+    <div className="flex-[3] flex flex-col justify-start text-center px-8 w-full animate-in slide-in-from-bottom-4 duration-700 delay-200 overflow-visible">
+      {/* Title & Artist */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-black tracking-tight truncate leading-tight text-white mb-1">{song.title}</h2>
+        <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.4em] truncate">{song.artist}</p>
+      </div>
 
-</div>
-            </div>
-          )}
+      {/* Dynamic Synced Lyric Display */}
+      <div className="flex-1 flex items-start justify-center pt-2">
+        {syncedLyrics.length > 0 && currentLineIndex !== -1 ? (
+          <p 
+            key={currentLineIndex}
+            className="text-xl font-bold text-white leading-snug break-words animate-in fade-in slide-in-from-bottom-2 duration-500"
+            style={{ 
+              textShadow: `0 0 20px ${dominantColor}44`,
+              display: '-webkit-box',
+              WebkitLineClamp: '3',
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden'
+            }}
+          >
+            {syncedLyrics[currentLineIndex].text}
+          </p>
+        ) : (
+          <div className="mt-4 flex gap-1.5 opacity-20">
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0s' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0.2s' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0.4s' }} />
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
           {activeTab === 'lyrics' && (
             <div ref={lyricsScrollRef} className="h-full w-full overflow-y-auto no-scrollbar text-center py-16 animate-in slide-in-from-bottom-8 duration-700 select-none">
