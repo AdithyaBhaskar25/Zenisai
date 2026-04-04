@@ -1,4 +1,4 @@
-Import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Song } from '../types';
 import { saavnService } from '../services/saavnService';
 
