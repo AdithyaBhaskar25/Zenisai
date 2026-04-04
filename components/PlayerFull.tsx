@@ -284,7 +284,24 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
               <div className="mt-8 text-center px-6 w-full animate-in slide-in-from-bottom-2 duration-700 delay-200">
                 <h2 className="text-3xl font-black tracking-tighter truncate leading-tight text-white mb-1.5">{song.title}</h2>
                 <p className="text-[11px] text-white/40 font-black uppercase tracking-[0.5em] truncate">{song.artist}</p>
-              </div>
+  
+            {/* --- ADD THIS BLOCK --- */}
+<div className="mt-6 h-12 flex items-center justify-center overflow-hidden w-full px-4">
+  {syncedLyrics.length > 0 && currentLineIndex !== -1 ? (
+    <p 
+      key={currentLineIndex} // Key ensures animation re-triggers on line change
+      className="text-lg font-bold text-white text-center animate-in fade-in slide-in-from-bottom-2 duration-500 line-clamp-2"
+      style={{ textShadow: `0 0 20px ${dominantColor}66` }}
+    >
+      {syncedLyrics[currentLineIndex].text}
+    </p>
+  ) : (
+    <div className="h-[2px] w-12 bg-white/10 rounded-full" /> 
+  )}
+</div>
+{/* ---------------------- */}
+
+</div>
             </div>
           )}
 
