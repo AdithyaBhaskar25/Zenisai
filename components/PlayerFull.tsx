@@ -55,18 +55,16 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   const [activeTab, setActiveTab] = useState<'player' | 'lyrics' | 'queue'>('player');
   const [showDropdown, setShowDropdown] = useState(false);
   const [showSleepTimerMenu, setShowSleepTimerMenu] = useState(false);
-  
-  // --- LYRIC ENGINE STATE ---
+
   const [syncedLyrics, setSyncedLyrics] = useState<LyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState<string[]>([]);
   const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
-  
+
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
   const activeLyricRef = useRef<HTMLParagraphElement>(null);
   const visualizerCanvasRef = useRef<HTMLCanvasElement>(null);
   const touchStartRef = useRef<number | null>(null);
 
-  // --- ULTRA-ROBUST LYRIC FETCHING ---
   useEffect(() => {
     const fetchLyrics = async () => {
       if (!song.title) return;
@@ -74,7 +72,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
       setSyncedLyrics([]);
       setPlainLyrics([]);
 
-      // Clean title: "Mutta Kalaki (From Kedi...)" -> "Mutta Kalaki"
       const cleanTitleStr = song.title.replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
       const artist = encodeURIComponent(song.artist);
       const title = encodeURIComponent(song.title);
@@ -102,11 +99,9 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
       };
 
       try {
-        // Tier 1: Exact Match GET
         const getRes = await fetch(`https://lrclib.net/api/get?artist_name=${artist}&track_name=${title}&duration=${dur}`);
         if (getRes.ok && processData(await getRes.json())) return;
 
-        // Tier 2: Search by Track + Artist (Handles slight duration mismatch)
         const searchRes = await fetch(`https://lrclib.net/api/search?track_name=${title}&artist_name=${artist}`);
         if (searchRes.ok) {
           const results = await searchRes.json();
@@ -119,7 +114,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
           }
         }
 
-        // Tier 3: Broad "Clean Title" Keyword Search (The Mutta Kalaki Fix)
         const broadRes = await fetch(`https://lrclib.net/api/search?q=${simpleTitle}`);
         if (broadRes.ok) {
           const broadResults = await broadRes.json();
@@ -131,8 +125,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
             if (processData(bestBroadMatch)) return;
           }
         }
-
-        // Tier 4: Local Fallback
         if (propLyrics) setPlainLyrics(propLyrics.split('\n'));
       } catch (e) {
         if (propLyrics) setPlainLyrics(propLyrics.split('\n'));
@@ -140,11 +132,9 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
         setIsLoadingLyrics(false);
       }
     };
-
     fetchLyrics();
   }, [song.id, duration]);
 
-  // Sync scroll to current line
   const currentLineIndex = useMemo(() => {
     for (let i = syncedLyrics.length - 1; i >= 0; i--) {
       if (progress >= syncedLyrics[i].time) return i;
@@ -158,7 +148,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     }
   }, [currentLineIndex, activeTab]);
 
-  // --- VISUALIZER LOGIC ---
   useEffect(() => {
     if (!analyser || !visualizerCanvasRef.current) return;
     const canvas = visualizerCanvasRef.current;
@@ -188,7 +177,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     return () => cancelAnimationFrame(animationId);
   }, [analyser, dominantColor]);
 
-  // --- QUEUE TOUCH REORDERING ---
   const dragItemRef = useRef<number | null>(null);
   const handleQueueTouchStart = (index: number) => { dragItemRef.current = index; };
   const handleQueueTouchMove = (e: React.TouchEvent) => {
@@ -273,66 +261,68 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
         </header>
 
         <div className="flex-1 overflow-hidden relative flex flex-col items-center">
-           {activeTab === 'player' && (
-  <div className="flex-1 flex flex-col w-full animate-in fade-in zoom-in-95 duration-700">
-    {/* 1. Artwork Container - Slightly smaller to make room */}
-    <div className="flex-[2] flex items-center justify-center min-h-0">
-      <div 
-        className="relative aspect-square w-full max-w-[220px] bg-white/[0.03] backdrop-blur-2xl rounded-[40px] p-3 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.6)] select-none" 
-        onTouchStart={handleTouchStart} 
-        onTouchEnd={handleTouchEnd}
-      >
-        <img 
-          src={song.artwork} 
-          alt=""
-          className={`w-full h-full rounded-[32px] object-cover transition-all duration-1000 pointer-events-none ${isPlaying ? 'scale-100' : 'opacity-40 grayscale scale-90'}`} 
-        />
-        <button 
-          onClick={onToggleFavorite} 
-          className={`absolute top-6 right-6 p-2 rounded-full transition-all duration-500 ${isFavorite ? 'bg-accent text-white' : 'bg-black/40 text-white/40'}`}
-        >
-          <svg className="w-5 h-5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
-          </svg>
-        </button>
-      </div>
-    </div>
+          {activeTab === 'player' && (
+            <div className="flex-1 flex flex-col w-full justify-between py-2 animate-in fade-in zoom-in-95 duration-700">
+              {/* 1. Artwork Section */}
+              <div className="flex-1 flex items-center justify-center min-h-0 px-8">
+                <div 
+                  className="relative aspect-square w-full max-w-[250px] bg-white/[0.03] backdrop-blur-2xl rounded-[44px] p-3.5 border border-white/10 shadow-[0_40px_90px_rgba(0,0,0,0.6)] select-none" 
+                  onTouchStart={handleTouchStart} 
+                  onTouchEnd={handleTouchEnd}
+                >
+                  <img 
+                    src={song.artwork} 
+                    className={`w-full h-full rounded-[32px] object-cover transition-all duration-1000 pointer-events-none ${isPlaying ? 'scale-100' : 'opacity-40 grayscale scale-95'}`} 
+                    alt={song.title}
+                  />
+                  <button 
+                    onClick={onToggleFavorite} 
+                    className={`absolute top-7 right-7 p-2.5 rounded-full transition-all duration-500 shadow-lg ${isFavorite ? 'bg-accent text-white' : 'bg-black/50 text-white/40'}`}
+                  >
+                    <svg className="w-5 h-5" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
 
-    {/* 2. Info & Lyrics Container - Flex-grow allows this to take all remaining space */}
-    <div className="flex-[3] flex flex-col justify-start text-center px-8 w-full animate-in slide-in-from-bottom-4 duration-700 delay-200 overflow-visible">
-      {/* Title & Artist */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-black tracking-tight truncate leading-tight text-white mb-1">{song.title}</h2>
-        <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.4em] truncate">{song.artist}</p>
-      </div>
+              {/* 2. Metadata Section */}
+              <div className="mt-4 text-center px-8 w-full">
+                <h2 className="text-2xl font-black tracking-tight truncate leading-tight text-white mb-0.5">
+                  {song.title}
+                </h2>
+                <p className="text-[10px] text-white/30 font-black uppercase tracking-[0.4em] truncate mb-6">
+                  {song.artist}
+                </p>
 
-      {/* Dynamic Synced Lyric Display */}
-      <div className="flex-1 flex items-start justify-center pt-2">
-        {syncedLyrics.length > 0 && currentLineIndex !== -1 ? (
-          <p 
-            key={currentLineIndex}
-            className="text-xl font-bold text-white leading-snug break-words animate-in fade-in slide-in-from-bottom-2 duration-500"
-            style={{ 
-              textShadow: `0 0 20px ${dominantColor}44`,
-              display: '-webkit-box',
-              WebkitLineClamp: '3',
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden'
-            }}
-          >
-            {syncedLyrics[currentLineIndex].text}
-          </p>
-        ) : (
-          <div className="mt-4 flex gap-1.5 opacity-20">
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0s' }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0.2s' }} />
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-bounce" style={{ animationDelay: '0.4s' }} />
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+                {/* 3. Interactive Lyric Card */}
+                <button 
+                  onClick={() => setActiveTab('lyrics')}
+                  className="w-full group relative overflow-hidden bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 rounded-[32px] p-6 transition-all duration-300 active:scale-[0.98] shadow-2xl"
+                >
+                  <div className="absolute inset-0 opacity-20 group-hover:opacity-30 transition-opacity duration-500" style={{ background: `radial-gradient(circle at center, ${dominantColor}, transparent 150%)` }} />
+                  <div className="relative z-10 flex flex-col items-center justify-center min-h-[60px]">
+                    {syncedLyrics.length > 0 && currentLineIndex !== -1 ? (
+                      <p key={`synced-${currentLineIndex}`} className="text-lg font-bold text-white leading-tight break-words animate-in fade-in slide-in-from-bottom-2 duration-500 line-clamp-2">
+                        {syncedLyrics[currentLineIndex].text}
+                      </p>
+                    ) : plainLyrics.length > 0 ? (
+                      <div className="space-y-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                        <p className="text-sm font-bold text-white line-clamp-1">{plainLyrics[0]}</p>
+                        {plainLyrics[1] && <p className="text-xs font-bold text-white/60 line-clamp-1">{plainLyrics[1]}</p>}
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 opacity-20">
+                         <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Lyrics</p>
+                         <div className="flex gap-1"><span className="w-1 h-1 rounded-full bg-white animate-pulse" /><span className="w-1 h-1 rounded-full bg-white animate-pulse [animation-delay:0.2s]" /></div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute bottom-2 right-6 opacity-0 group-hover:opacity-40 transition-all duration-500 translate-y-1 group-hover:translate-y-0"><svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" /></svg></div>
+                </button>
+              </div>
+            </div>
+          )}
 
           {activeTab === 'lyrics' && (
             <div ref={lyricsScrollRef} className="h-full w-full overflow-y-auto no-scrollbar text-center py-16 animate-in slide-in-from-bottom-8 duration-700 select-none">
@@ -381,7 +371,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
           <div className="space-y-2 relative">
              <div className="relative h-12 w-full bg-white/5 rounded-[20px] overflow-hidden group border border-white/5">
                <canvas ref={visualizerCanvasRef} width={400} height={48} className="absolute inset-0 w-full h-full opacity-30 pointer-events-none" />
-               <div className="absolute h-full bg-white/[0.04] transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: dominantColor.replace('rgb', 'rgba').replace(')', ', 0.1)') }} />
+               <div className="absolute h-full transition-all duration-300" style={{ width: `${progressPercent}%`, backgroundColor: dominantColor.replace('rgb', 'rgba').replace(')', ', 0.1)') }} />
                <input type="range" min="0" max={duration || 100} value={progress} onChange={(e) => onSeek(Number(e.target.value))} className="absolute inset-0 w-full h-full opacity-0 z-20 cursor-pointer" />
                <div className="absolute inset-0 flex items-center justify-between px-6 pointer-events-none">
                  <span className="text-[10px] font-black text-white/20 tracking-[0.2em]">{formatTime(progress)}</span>
