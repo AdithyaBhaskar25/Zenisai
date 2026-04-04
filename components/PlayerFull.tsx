@@ -117,7 +117,17 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
           <div className="flex items-center gap-1.5">
             <button onClick={onDownload} className="p-2 bg-white/5 rounded-full active:scale-90 transition-all text-white/60"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></button>
             <button onClick={onShowPlaylistModal} className="p-2 bg-white/5 rounded-full active:scale-90 transition-all text-white/60"><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg></button>
-            <button onClick={() => setShowSleepTimerMenu(!showSleepTimerMenu)} className={`p-2 rounded-full active:scale-90 transition-all ${sleepTimer ? 'bg-accent text-white' : 'bg-white/5 text-white/60'}`}><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0" /></svg></button>
+          <button 
+  onClick={() => setShowSleepTimerMenu(!showSleepTimerMenu)} 
+  className={`p-2 rounded-full active:scale-90 transition-all ${sleepTimer ? 'bg-accent text-white' : 'bg-white/5 text-white/60'}`}
+>
+  {/* ROUND CLOCK ICON */}
+  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 7v5l3 2" />
+  </svg>
+</button>
+
           </div>
 
           {showSleepTimerMenu && (
