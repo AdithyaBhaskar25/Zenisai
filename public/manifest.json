@@ -8,15 +8,19 @@
   "background_color": "#030711",
   "theme_color": "#3b82f6",
   "icons": [
-    {
-      "src": "https://cdn-icons-png.flaticon.com/512/17375/17375348.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "any maskable"
+   {
+      "src": "/icons/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/17375/17375348.png",
-      "sizes": "512x512",
+      "src": "/icons/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png"
     }
   ]
