@@ -6,42 +6,56 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Zenisai - Premium Music</title>
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#000000">
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/17375/17375348.png" type="image/png">
+    <meta name="theme-color" content="#030711">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         @property --color-primary {
             syntax: '<color>';
-            initial-value: #a855f7;
+            initial-value: #3b82f6;
             inherits: true;
         }
         @property --color-bg {
             syntax: '<color>';
-            initial-value: #000000;
+            initial-value: #030711;
             inherits: true;
         }
         @property --color-glow {
             syntax: '<color>';
-            initial-value: rgba(168, 85, 247, 0.2);
+            initial-value: rgba(59, 130, 246, 0.2);
             inherits: true;
+        }
+        @property --color-surface {
+          syntax: '<color>';
+          initial-value: #0b1220;
+          inherits: true;
+        }
+        @property --color-tint {
+          syntax: '<color>';
+          initial-value: rgba(59, 130, 246, 0.12);
+          inherits: true;
         }
 
         :root {
-            --color-primary: #a855f7;
-            --color-bg: #000000;
-            --color-surface: #121212;
-            --color-glow: rgba(168, 85, 247, 0.2);
+            --color-primary: #3b82f6;
+            --color-bg: #030711;
+            --color-surface: #0b1220;
+            --color-glow: rgba(59, 130, 246, 0.2);
+            --color-tint: rgba(59, 130, 246, 0.12);
             transition: --color-primary 1.2s cubic-bezier(0.23, 1, 0.32, 1), 
                         --color-bg 1.2s cubic-bezier(0.23, 1, 0.32, 1), 
-                        --color-glow 1.2s cubic-bezier(0.23, 1, 0.32, 1);
+                        --color-glow 1.2s cubic-bezier(0.23, 1, 0.32, 1),
+                        --color-surface 1.2s cubic-bezier(0.23, 1, 0.32, 1),
+                        --color-tint 1.2s cubic-bezier(0.23, 1, 0.32, 1);
         }
 
         body { 
-            font-family: 'Inter', sans-serif; 
+            font-family: 'DM Sans', sans-serif;
             -webkit-tap-highlight-color: transparent; 
             background-color: var(--color-bg);
             color: white;
@@ -49,6 +63,8 @@
             user-select: none;
             overflow: hidden;
         }
+
+        h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; }
 
         ::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -90,6 +106,8 @@
         .border-accent { border-color: var(--color-primary) !important; }
         .shadow-accent { box-shadow: 0 0 30px var(--color-glow); }
         .fill-accent { fill: var(--color-primary) !important; }
+        .bg-accent-tint { background-color: var(--color-tint) !important; }
+        .border-accent-tint { border-color: var(--color-tint) !important; }
     </style>
 <script type="importmap">
 {
@@ -101,9 +119,8 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
-<body class="selection:bg-purple-500/30 overflow-hidden">
+<body class="selection:bg-blue-500/30 overflow-hidden">
     <div id="root"></div>
     <script>
       if ('serviceWorker' in navigator) {

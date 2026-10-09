@@ -1,9 +1,8 @@
 
-const CACHE_NAME = 'zenisai-v10';
+const CACHE_NAME = 'zenisai-v11';
 const ASSETS = [
   '/',
   '/index.html',
-  '/index.tsx',
   '/manifest.json'
 ];
 
@@ -11,11 +10,12 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ASSETS);
-    })
+    }).then(() => self.skipWaiting())
   );
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET' || event.request.destination === 'audio' || event.request.headers.has('range')) return;
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request);
@@ -29,6 +29,6 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });

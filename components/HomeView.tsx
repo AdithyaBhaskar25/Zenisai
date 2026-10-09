@@ -8,20 +8,25 @@ interface HomeViewProps {
   isPlaying: boolean;
   onAddClick: (song: Song) => void;
   onDownload: (song: Song) => void;
+  progress: number;
+  isFavorite: (songId: string) => boolean;
+  onToggleFavorite: (song: Song) => void;
 }
 
-const HomeView: React.FC<HomeViewProps> = ({ onPlay, currentSong, isPlaying, onAddClick, onDownload }) => {
+const HomeView: React.FC<HomeViewProps> = ({ onPlay, currentSong, isPlaying, onAddClick, onDownload, progress, isFavorite, onToggleFavorite }) => {
   const [tamilHits, setTamilHits] = useState<Song[]>([]);
   const [englishHits, setEnglishHits] = useState<Song[]>([]);
   const [recommended, setRecommended] = useState<Song[]>([]);
+  const [syncedLyrics, setSyncedLyrics] = useState<{ time: number; text: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [feedMode, setFeedMode] = useState<'latest' | 'recommendations'>('latest');
 
   useEffect(() => {
     const fetchDiscovery = async () => {
       setLoading(true);
       try {
-        const baseTamilQuery = currentSong?.language === 'Tamil' ? currentSong.artist : 'Tamil Viral Hits';
-        const baseEnglishQuery = currentSong?.language === 'English' ? currentSong.artist : 'Trending Global';
+        const baseTamilQuery = 'New Tamil Songs';
+        const baseEnglishQuery = 'New English Songs';
 
         const [t, e, rec] = await Promise.all([
           saavnService.searchSongs(baseTamilQuery, 0, 12),
@@ -41,6 +46,46 @@ const HomeView: React.FC<HomeViewProps> = ({ onPlay, currentSong, isPlaying, onA
     fetchDiscovery();
   }, [currentSong?.id]);
 
+  useEffect(() => {
+    if (!currentSong) {
+      setSyncedLyrics([]);
+      return;
+    }
+    let cancelled = false;
+    setSyncedLyrics([]);
+    const exactParams = new URLSearchParams({
+      artist_name: currentSong.artist,
+      track_name: currentSong.title,
+      duration: String(Math.round(currentSong.duration || 0)),
+    });
+    const loadLyrics = async () => {
+      try {
+        const exactResponse = await fetch(`https://lrclib.net/api/get?${exactParams}`);
+        let data = exactResponse.ok ? await exactResponse.json() : null;
+        if (!data?.syncedLyrics) {
+          const searchParams = new URLSearchParams({ artist_name: currentSong.artist, track_name: currentSong.title });
+          const searchResponse = await fetch(`https://lrclib.net/api/search?${searchParams}`);
+          const results = searchResponse.ok ? await searchResponse.json() : [];
+          data = results.find((result: any) => result.syncedLyrics) ?? results[0] ?? null;
+        }
+        if (cancelled) return;
+        const lines = data?.syncedLyrics?.split('\n').flatMap((line: string) => {
+          const stamp = line.match(/^\[(\d+):(\d+(?:\.\d+)?)\]/);
+          const text = line.replace(/^\[[^\]]+\]/, '').trim();
+          return stamp && text ? [{ time: Number(stamp[1]) * 60 + Number(stamp[2]), text }] : [];
+        }) ?? [];
+        setSyncedLyrics(lines);
+      } catch {
+        if (!cancelled) setSyncedLyrics([]);
+      }
+    };
+    void loadLyrics();
+    return () => { cancelled = true; };
+  }, [currentSong?.id]);
+
+  const activeLyric = [...syncedLyrics].reverse().find(line => progress >= line.time)?.text;
+  const feedSongs = feedMode === 'recommendations' ? recommended : [...tamilHits, ...englishHits];
+
   if (loading && tamilHits.length === 0) return (
     <div className="flex h-[80vh] items-center justify-center">
       <div className="flex flex-col items-center gap-4">
@@ -50,83 +95,33 @@ const HomeView: React.FC<HomeViewProps> = ({ onPlay, currentSong, isPlaying, onA
     </div>
   );
 
-  const SongCard = ({ song, list }: { song: Song, list: Song[] }) => (
-    <div className="flex-shrink-0 w-44 space-y-4 group relative">
-      <div className="relative aspect-square rounded-[48px] overflow-hidden shadow-[0_20px_40px_rgba(0,0,0,0.6)] transition-all duration-700 hover:scale-[1.04] active:scale-95 group shadow-black/80" onClick={() => onPlay(song, list)}>
-        <img src={song.artwork} className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110" />
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-           <svg className="w-12 h-12 text-white/80" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
-        </div>
-        {currentSong?.id === song.id && isPlaying && (
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center">
-             <div className="flex gap-1.5 items-end h-8">
-                <div className="w-1.5 h-3 bg-accent animate-bounce shadow-accent"></div>
-                <div className="w-1.5 h-7 bg-accent animate-bounce shadow-accent [animation-delay:0.2s]"></div>
-                <div className="w-1.5 h-4 bg-accent animate-bounce shadow-accent [animation-delay:0.4s]"></div>
-             </div>
-          </div>
-        )}
-      </div>
-      <div className="absolute top-4 right-4 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-x-4 group-hover:translate-x-0">
-        <button onClick={(e) => { e.stopPropagation(); onDownload(song); }} className="p-3 bg-black/60 backdrop-blur-2xl rounded-2xl text-white/80 border border-white/10 shadow-2xl hover:text-accent hover:bg-black/80 transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg></button>
-        <button onClick={(e) => { e.stopPropagation(); onAddClick(song); }} className="p-3 bg-black/60 backdrop-blur-2xl rounded-2xl text-white/80 border border-white/10 shadow-2xl hover:text-accent hover:bg-black/80 transition-all"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"></path></svg></button>
-      </div>
-      <div className="px-3" onClick={() => onPlay(song, list)}>
-        <p className={`font-black text-[13px] truncate tracking-tight mb-0.5 leading-none ${currentSong?.id === song.id ? 'text-accent' : 'text-white/90'}`}>{song.title}</p>
-        <p className="text-white/20 text-[9px] font-black uppercase tracking-[0.2em]">{song.artist}</p>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="p-10 pt-14 space-y-16 relative z-10">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-7xl font-black tracking-tighter leading-none italic bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-white/20">Zenisai</h1>
-        <div className="flex items-center gap-3">
-          <div className="h-[2px] w-8 bg-accent shadow-accent rounded-full"></div>
-          <p className="text-accent text-[10px] font-black uppercase tracking-[0.6em] drop-shadow-[0_0_10px_rgba(var(--color-primary),0.5)]">AI Sonic Experience</p>
-        </div>
+    <div className="mx-auto flex min-h-[calc(100dvh-220px)] max-w-4xl flex-col gap-4 px-0 pb-4 pt-3 sm:px-6 sm:pt-4">
+      <header className="flex items-center justify-between px-4 sm:px-2">
+        <div><p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">Sound for your day</p><h1 className="mt-1 text-3xl font-bold">Zenisai</h1></div>
+        <span className="text-xs text-white/35">{currentSong ? 'Your mix' : 'Fresh drops'}</span>
       </header>
-
-      {recommended.length > 0 && (
-        <section>
-          <div className="flex justify-between items-end mb-8 px-1">
-            <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">
-              {currentSong ? `Inspired by your vibe` : "Top Pick For You"}
-            </h2>
-            <div className="h-[1px] flex-1 mx-6 bg-white/5"></div>
-          </div>
-          <div className="flex gap-8 overflow-x-auto pb-10 no-scrollbar">
-            {recommended.map((song) => (
-              <SongCard key={song.id} song={song} list={recommended} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section>
-        <div className="flex justify-between items-end mb-8 px-1">
-          <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">Regional Discovery</h2>
-          <div className="h-[1px] flex-1 mx-6 bg-white/5"></div>
-        </div>
-        <div className="flex gap-8 overflow-x-auto pb-10 no-scrollbar">
-          {tamilHits.map((song) => (
-            <SongCard key={song.id} song={song} list={tamilHits} />
-          ))}
-        </div>
-      </section>
-
-      <section>
-        <div className="flex justify-between items-end mb-8 px-1">
-          <h2 className="text-[11px] font-black uppercase tracking-[0.4em] text-white/30">Global Anthems</h2>
-          <div className="h-[1px] flex-1 mx-6 bg-white/5"></div>
-        </div>
-        <div className="flex gap-8 overflow-x-auto pb-10 no-scrollbar">
-          {englishHits.map((song) => (
-            <SongCard key={song.id} song={song} list={englishHits} />
-          ))}
-        </div>
-      </section>
+      <div className="mx-3 flex rounded-[14px] border border-accent-tint bg-accent-tint p-1 sm:mx-0" role="tablist" aria-label="Home feed">
+        {(['latest', 'recommendations'] as const).map(mode => <button key={mode} role="tab" aria-selected={feedMode === mode} onClick={() => setFeedMode(mode)} className={`flex-1 rounded-[10px] py-2.5 text-sm font-semibold transition-colors ${feedMode === mode ? 'bg-accent text-[#06101e] shadow-lg shadow-accent/20' : 'text-white/55'}`}>{mode === 'latest' ? 'Latest' : 'For you'}</button>)}
+      </div>
+      <div className="h-[min(74dvh,720px)] min-h-[420px] snap-y snap-mandatory overflow-y-auto overscroll-contain rounded-none border-y border-white/10 bg-[var(--color-surface)] no-scrollbar sm:rounded-[24px] sm:border">
+        {feedSongs.map((song, index) => {
+          const isCurrent = currentSong?.id === song.id;
+          const queue = feedMode === 'latest' ? feedSongs : recommended;
+          return <article key={`${song.id}-${index}`} onClick={() => onPlay(song, queue)} className="relative h-full min-h-full snap-start overflow-hidden bg-[var(--color-surface)]">
+            <img src={song.artwork} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, color-mix(in srgb,var(--color-bg) 96%,transparent), color-mix(in srgb,var(--color-bg) 20%,transparent) 65%, color-mix(in srgb,var(--color-bg) 32%,transparent))' }} />
+            <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4"><span className="rounded-full border border-white/15 bg-black/35 px-3 py-1.5 text-[9px] font-bold uppercase text-white/80 backdrop-blur-md">{feedMode === 'latest' ? (song.language === 'Tamil' ? 'Tamil · New' : 'English · New') : 'Picked for you'}</span><span className="text-xs text-white/70">{index + 1} / {feedSongs.length}</span></div>
+            <div className="absolute bottom-5 left-4 z-10 max-w-[calc(100%-5rem)] sm:left-6"><p className="mb-3 min-h-10 text-sm font-medium text-white/80">{isCurrent && activeLyric ? activeLyric : isCurrent ? 'Lyrics follow the track' : 'Tap to play'}</p><h2 className="truncate text-2xl font-bold text-white">{song.title}</h2><p className="mt-1 truncate text-sm text-white/70">{song.artist}</p><p className="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">{isCurrent && isPlaying ? 'Now playing' : 'Zenisai feed'}</p></div>
+            <div className="absolute right-3 top-1/2 z-20 flex -translate-y-1/2 flex-col gap-3">
+              <button aria-label={isFavorite(song.id) ? 'Remove from favorites' : 'Add to favorites'} onClick={event => { event.stopPropagation(); onToggleFavorite(song); }} className={`grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-black/35 backdrop-blur-md ${isFavorite(song.id) ? 'text-accent' : 'text-white'}`}><svg className="h-5 w-5" viewBox="0 0 24 24" fill={isFavorite(song.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" /></svg></button>
+              <button aria-label="Add to playlist" onClick={event => { event.stopPropagation(); onAddClick(song); }} className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur-md"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg></button>
+              <button aria-label="Download track" onClick={event => { event.stopPropagation(); onDownload(song); }} className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur-md"><svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" /></svg></button>
+            </div>
+          </article>;
+        })}
+        {feedSongs.length === 0 && <div className="grid min-h-[min(76dvh,760px)] place-items-center p-8 text-center text-sm text-white/45">{feedMode === 'recommendations' ? 'Play a track to build recommendations around it.' : 'No tracks found right now.'}</div>}
+      </div>
     </div>
   );
 };

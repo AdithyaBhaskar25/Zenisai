@@ -33,7 +33,8 @@ export const saavnService = {
   },
 
   async getArtistDetails(id: string) {
-    const res = await fetch(`${BASE_URL}/api/artists/${id}`);
+    const params = new URLSearchParams({ page: '0', songCount: '100', albumCount: '0' });
+    const res = await fetch(`${BASE_URL}/api/artists/${id}?${params}`);
     const json = await res.json();
     return json.data;
   },

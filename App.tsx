@@ -29,7 +29,8 @@ const App: React.FC = () => {
   const [duration, setDuration] = useState(0);
   const [sleepTimer, setSleepTimer] = useState<number | null>(null);
   const [currentLyrics, setCurrentLyrics] = useState<string>('');
-  const [dominantColor, setDominantColor] = useState('#a855f7');
+  const [currentSyncedLyrics, setCurrentSyncedLyrics] = useState<string>('');
+  const [dominantColor, setDominantColor] = useState('#3b82f6');
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<Song | null>(null);
 
   const [repeatMode, setRepeatMode] = useState<'off' | 'one' | 'all'>('off');
@@ -38,6 +39,9 @@ const App: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sleepTimerRef = useRef<any>(null);
+  const handleTrackEndedRef = useRef<() => void>(() => {});
+  const mediaActionsRef = useRef({ play: () => {}, pause: () => {}, next: () => {}, prev: () => {} });
+  const pageTouchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     localStorage.setItem('zenisai_v10_playlists', JSON.stringify(playlists));
@@ -59,30 +63,54 @@ const App: React.FC = () => {
     if (!audioRef.current) {
       audioRef.current = new Audio();
       audioRef.current.crossOrigin = "anonymous";
+      audioRef.current.preload = 'auto';
+      audioRef.current.setAttribute('playsinline', '');
+      try {
+        (navigator as any).audioSession.type = 'playback';
+      } catch { /* Audio Session is not available in every browser. */ }
     }
     const audio = audioRef.current;
     const updateProgress = () => {
       setProgress(audio.currentTime);
       setDuration(audio.duration || 0);
     };
+    const updatePlaying = () => setIsPlaying(!audio.paused && !audio.ended);
+    const handleEnded = () => handleTrackEndedRef.current();
     audio.addEventListener('timeupdate', updateProgress);
-    audio.addEventListener('ended', handleTrackEnded);
+    audio.addEventListener('loadedmetadata', updateProgress);
+    audio.addEventListener('durationchange', updateProgress);
+    audio.addEventListener('play', updatePlaying);
+    audio.addEventListener('pause', updatePlaying);
+    audio.addEventListener('ended', handleEnded);
     return () => {
       audio.removeEventListener('timeupdate', updateProgress);
-      audio.removeEventListener('ended', handleTrackEnded);
+      audio.removeEventListener('loadedmetadata', updateProgress);
+      audio.removeEventListener('durationchange', updateProgress);
+      audio.removeEventListener('play', updatePlaying);
+      audio.removeEventListener('pause', updatePlaying);
+      audio.removeEventListener('ended', handleEnded);
     };
-  }, [queue, currentSong, repeatMode]);
+  }, []);
+
+  const playAudio = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const context = analyserRef.current?.context;
+    if (context?.state === 'suspended') context.resume().catch(() => {});
+    audio.play().catch(() => setIsPlaying(false));
+  };
   
   const handleTrackEnded = () => {
     if (repeatMode === 'one') {
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
-        audioRef.current.play();
+        playAudio();
       }
     } else {
       handleNext();
     }
   };
+  handleTrackEndedRef.current = handleTrackEnded;
 
   const updateThemeFromImage = (imageUrl: string) => {
     const img = new Image();
@@ -91,33 +119,100 @@ const App: React.FC = () => {
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
-      canvas.width = 1; canvas.height = 1;
+      canvas.width = 24; canvas.height = 24;
       try {
-        ctx?.drawImage(img, 0, 0, 1, 1);
-        const data = ctx?.getImageData(0, 0, 1, 1).data;
-        if (data) {
-          const color = `rgb(${data[0]},${data[1]},${data[2]})`;
-          const glowColor = `rgba(${data[0]},${data[1]},${data[2]}, 0.3)`;
-          const bgColor = `rgb(${Math.floor(data[0] * 0.03)}, ${Math.floor(data[1] * 0.03)}, ${Math.floor(data[2] * 0.03)})`;
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const pixels = ctx?.getImageData(0, 0, canvas.width, canvas.height).data;
+        if (pixels) {
+          let red = 0, green = 0, blue = 0, totalWeight = 0;
+          for (let i = 0; i < pixels.length; i += 4) {
+            if (pixels[i + 3] < 128) continue;
+            const pixelRed = pixels[i], pixelGreen = pixels[i + 1], pixelBlue = pixels[i + 2];
+            const brightness = (pixelRed + pixelGreen + pixelBlue) / 3;
+            if (brightness < 28 || brightness > 242) continue;
+            const chroma = Math.max(pixelRed, pixelGreen, pixelBlue) - Math.min(pixelRed, pixelGreen, pixelBlue);
+            const weight = 0.35 + chroma / 85;
+            red += pixelRed * weight; green += pixelGreen * weight; blue += pixelBlue * weight;
+            totalWeight += weight;
+          }
+          if (totalWeight === 0) throw new Error('Artwork has no usable colors.');
+          const average = [red / totalWeight, green / totalWeight, blue / totalWeight];
+          const luminance = average[0] * 0.3 + average[1] * 0.59 + average[2] * 0.11;
+          const chroma = Math.max(...average) - Math.min(...average);
+          const saturation = chroma < 20 ? 1 : 1.28;
+          let vivid = average.map(channel => Math.max(0, Math.min(255, Math.round(luminance + (channel - luminance) * saturation))));
+          const vividLuminance = vivid[0] * 0.3 + vivid[1] * 0.59 + vivid[2] * 0.11;
+          if (vividLuminance < 88) {
+            const lift = (88 - vividLuminance) / (255 - vividLuminance);
+            vivid = vivid.map(channel => Math.round(channel + (255 - channel) * lift));
+          } else if (vividLuminance > 190) {
+            const dim = 190 / vividLuminance;
+            vivid = vivid.map(channel => Math.round(channel * dim));
+          }
+          const [vividRed, vividGreen, vividBlue] = vivid;
+          const color = `rgb(${vividRed},${vividGreen},${vividBlue})`;
+          const glowColor = `rgba(${vividRed},${vividGreen},${vividBlue}, 0.3)`;
+          const bgColor = `rgb(${Math.max(2, Math.round(vividRed * 0.035))},${Math.max(6, Math.round(vividGreen * 0.045))},${Math.max(14, Math.round(vividBlue * 0.065))})`;
+          const surfaceColor = `rgb(${Math.max(7, Math.round(vividRed * 0.08))},${Math.max(14, Math.round(vividGreen * 0.085))},${Math.max(26, Math.round(vividBlue * 0.12))})`;
+          const tintColor = `rgba(${vividRed},${vividGreen},${vividBlue},0.12)`;
           
           setDominantColor(color);
           document.documentElement.style.setProperty('--color-primary', color);
           document.documentElement.style.setProperty('--color-glow', glowColor);
           document.documentElement.style.setProperty('--color-bg', bgColor);
+          document.documentElement.style.setProperty('--color-surface', surfaceColor);
+          document.documentElement.style.setProperty('--color-tint', tintColor);
+          document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bgColor);
         }
       } catch (e) { 
-          setDominantColor('#a855f7'); 
+          setDominantColor('#3b82f6');
       }
     };
   };
 
-  const fetchLyrics = async (songId: string) => {
-    setCurrentLyrics('Fetching poetry...');
+  const fetchLyrics = async (song: Song) => {
+    setCurrentLyrics('Fetching lyrics...');
+    setCurrentSyncedLyrics('');
     try {
-      const res = await fetch(`https://jiosaavn-api.vercel.app/lyrics?id=${songId}`);
+      const exactParams = new URLSearchParams({
+        artist_name: song.artist,
+        track_name: song.title,
+        duration: String(Math.round(song.duration || 0)),
+      });
+      const exactResponse = await fetch(`https://lrclib.net/api/get?${exactParams}`);
+      let lyricData = exactResponse.ok ? await exactResponse.json() : null;
+      if (!lyricData?.syncedLyrics) {
+        const searchParams = new URLSearchParams({ artist_name: song.artist, track_name: song.title });
+        const searchResponse = await fetch(`https://lrclib.net/api/search?${searchParams}`);
+        const matches = searchResponse.ok ? await searchResponse.json() : [];
+        lyricData = matches.find((match: any) => match.syncedLyrics) ?? matches[0] ?? null;
+      }
+      if (lyricData?.syncedLyrics) {
+        setCurrentSyncedLyrics(lyricData.syncedLyrics);
+        setCurrentLyrics(lyricData.syncedLyrics.replace(/\[\d+:\d+(?:\.\d+)?\]/g, '').trim());
+        return;
+      }
+    } catch { /* Fall back to the catalog's plain lyric endpoint. */ }
+    try {
+      const res = await fetch(`https://jiosaavn-api.vercel.app/lyrics?id=${song.id}`);
       const data = await res.json();
       setCurrentLyrics(data.lyrics ? data.lyrics.replace(/<br>/g, '\n') : 'No lyrics available.');
-    } catch (e) { setCurrentLyrics('Lyrics unavailable.'); }
+    } catch { setCurrentLyrics('Lyrics unavailable.'); }
+  };
+
+  const setQueueForSelection = (selectedSong: Song, songs: Song[]) => {
+    const orderedQueue = [selectedSong, ...songs.filter(item => item.id !== selectedSong.id)];
+    setOriginalQueue(orderedQueue);
+    if (isShuffle) {
+      const upcoming = orderedQueue.slice(1);
+      for (let index = upcoming.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [upcoming[index], upcoming[swapIndex]] = [upcoming[swapIndex], upcoming[index]];
+      }
+      setQueue([selectedSong, ...upcoming]);
+    } else {
+      setQueue(orderedQueue);
+    }
   };
 
   const handlePlaySong = async (song: Song, newQueue?: Song[]) => {
@@ -133,25 +228,24 @@ const App: React.FC = () => {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       const ctx = new AudioContextClass();
       analyserRef.current = ctx.createAnalyser();
-      analyserRef.current.fftSize = 128; // Higher res for silky bars
+      analyserRef.current.fftSize = 64;
       const source = ctx.createMediaElementSource(audioRef.current);
       source.connect(analyserRef.current);
       analyserRef.current.connect(ctx.destination);
     }
     if (currentSong?.id === playSong.id) {
+      if (newQueue) setQueueForSelection(playSong, newQueue);
       togglePlay();
       return;
     }
     setCurrentSong(playSong);
     updateThemeFromImage(playSong.artwork);
-    fetchLyrics(playSong.id);
+    fetchLyrics(playSong);
     audioRef.current.src = playSong.url;
-    audioRef.current.play().catch(() => setIsPlaying(false));
-    setIsPlaying(true);
+    playAudio();
 
     if (newQueue) {
-      setOriginalQueue(newQueue);
-      setQueue(isShuffle ? [...newQueue].sort(() => Math.random() - 0.5) : newQueue);
+      setQueueForSelection(playSong, newQueue);
     } else if (!queue.some(s => s.id === playSong.id)) {
       setQueue(prev => [playSong, ...prev]);
     }
@@ -159,9 +253,8 @@ const App: React.FC = () => {
 
   const togglePlay = () => {
     if (!audioRef.current?.src) return;
-    if (isPlaying) audioRef.current.pause();
-    else audioRef.current.play().catch(console.error);
-    setIsPlaying(!isPlaying);
+    if (audioRef.current.paused) playAudio();
+    else audioRef.current.pause();
   };
 
   const handleNext = useCallback(() => {
@@ -170,7 +263,12 @@ const App: React.FC = () => {
     if (idx !== -1 && idx < queue.length - 1) {
       handlePlaySong(queue[idx + 1]);
     } else if (repeatMode === 'all') {
-      handlePlaySong(queue[0]);
+      if (queue.length === 1 && audioRef.current) {
+        audioRef.current.currentTime = 0;
+        playAudio();
+      } else {
+        handlePlaySong(queue[0]);
+      }
     } else {
       setIsPlaying(false);
     }
@@ -186,13 +284,30 @@ const App: React.FC = () => {
     }
   }, [queue, currentSong, repeatMode]);
 
+  mediaActionsRef.current = {
+    play: playAudio,
+    pause: () => audioRef.current?.pause(),
+    next: () => handleNext(),
+    prev: () => handlePrev(),
+  };
+
   const toggleShuffle = () => {
     const newState = !isShuffle;
     setIsShuffle(newState);
     if (newState) {
-      setQueue([...queue].sort(() => Math.random() - 0.5));
+      setOriginalQueue(queue);
+      const currentIndex = queue.findIndex(song => song.id === currentSong?.id);
+      const played = currentIndex >= 0 ? queue.slice(0, currentIndex) : [];
+      const upcoming = currentIndex >= 0 ? queue.slice(currentIndex + 1) : [...queue];
+      for (let index = upcoming.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        [upcoming[index], upcoming[swapIndex]] = [upcoming[swapIndex], upcoming[index]];
+      }
+      setQueue(currentSong ? [...played, currentSong, ...upcoming] : upcoming);
     } else {
-      setQueue(originalQueue.length > 0 ? originalQueue : queue);
+      const restored = originalQueue.length > 0 ? originalQueue : queue;
+      const currentIndex = restored.findIndex(song => song.id === currentSong?.id);
+      setQueue(currentIndex >= 0 ? [...restored.slice(currentIndex), ...restored.slice(0, currentIndex)] : restored);
     }
   };
 
@@ -244,81 +359,179 @@ const App: React.FC = () => {
     }
   };
 
+  const findSong = async (query: string) => {
+    const results = await saavnService.searchSongs(query, 0, 1);
+    return results?.length ? saavnService.mapSong(results[0]) : null;
+  };
+
+  const recommendSongs = async (query: string) => {
+    const results = await saavnService.searchSongs(query, 0, 5);
+    const songs = results.map(saavnService.mapSong);
+    return songs.length ? songs.map((song, index) => `${index + 1}. ${song.title} - ${song.artist}`).join('\n') : 'No matching recommendations found.';
+  };
+
+  const favoriteSong = async (query: string) => {
+    const song = await findSong(query);
+    if (!song) return;
+    setPlaylists(prev => prev.map(playlist => {
+      if (playlist.id !== 'favs' || playlist.songs.some(item => item.id === song.id)) return playlist;
+      return { ...playlist, songs: [...playlist.songs, song], artwork: song.artwork };
+    }));
+  };
+
+  const addCurrentToFavorites = () => {
+    if (!currentSong) return;
+    setPlaylists(prev => prev.map(playlist => {
+      if (playlist.id !== 'favs' || playlist.songs.some(item => item.id === currentSong.id)) return playlist;
+      return { ...playlist, songs: [...playlist.songs, currentSong], artwork: currentSong.artwork };
+    }));
+  };
+
+  const addSongToPlaylist = async (query: string, playlistName: string) => {
+    const song = await findSong(query);
+    if (!song) return;
+    const name = playlistName.trim() || 'New Playlist';
+    setPlaylists(prev => {
+      const existing = prev.find(playlist => playlist.name.toLowerCase() === name.toLowerCase());
+      if (existing) {
+        return prev.map(playlist => playlist.id !== existing.id || playlist.songs.some(item => item.id === song.id)
+          ? playlist
+          : { ...playlist, songs: [...playlist.songs, song], artwork: song.artwork });
+      }
+      return [...prev, { id: Date.now().toString(), name, songs: [song], artwork: song.artwork }];
+    });
+  };
+
   const createPlaylist = (name: string) => {
     const newP: Playlist = { id: Date.now().toString(), name, songs: [], artwork: `https://picsum.photos/seed/${name}/400/400` };
     setPlaylists(prev => [...prev, newP]);
     return newP;
   };
-  // --- MEDIA SESSION API INTEGRATION ---
+  // Keep notification controls bound to the latest queue without repeatedly replacing handlers.
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    const session = navigator.mediaSession;
+    const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
+      try { session.setActionHandler(action, handler); } catch { /* Action is unsupported by this browser. */ }
+    };
+    setHandler('play', () => mediaActionsRef.current.play());
+    setHandler('pause', () => mediaActionsRef.current.pause());
+    setHandler('previoustrack', () => mediaActionsRef.current.prev());
+    setHandler('nexttrack', () => mediaActionsRef.current.next());
+    setHandler('seekto', details => {
+      if (details.seekTime !== undefined && audioRef.current) {
+        audioRef.current.currentTime = details.seekTime;
+        setProgress(details.seekTime);
+      }
+    });
+    setHandler('seekbackward', details => {
+      if (!audioRef.current) return;
+      audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - (details.seekOffset ?? 10));
+      setProgress(audioRef.current.currentTime);
+    });
+    setHandler('seekforward', details => {
+      if (!audioRef.current) return;
+      audioRef.current.currentTime = Math.min(audioRef.current.duration || Infinity, audioRef.current.currentTime + (details.seekOffset ?? 10));
+      setProgress(audioRef.current.currentTime);
+    });
+    setHandler('stop', () => audioRef.current?.pause());
+    return () => {
+      setHandler('play', null);
+      setHandler('pause', null);
+      setHandler('previoustrack', null);
+      setHandler('nexttrack', null);
+      setHandler('seekto', null);
+      setHandler('seekbackward', null);
+      setHandler('seekforward', null);
+      setHandler('stop', null);
+    };
+  }, []);
+
   useEffect(() => {
     if (!currentSong || !('mediaSession' in navigator)) return;
-
-    // 1. Update Metadata (Title, Artist, Artwork)
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentSong.title,
       artist: currentSong.artist,
       album: currentSong.album || 'Unknown Album',
       artwork: [
-        { src: currentSong.artwork, sizes: '96x96', type: 'image/png' },
-        { src: currentSong.artwork, sizes: '128x128', type: 'image/png' },
-        { src: currentSong.artwork, sizes: '192x192', type: 'image/png' },
-        { src: currentSong.artwork, sizes: '512x512', type: 'image/png' },
+        { src: currentSong.artwork, sizes: '96x96' },
+        { src: currentSong.artwork, sizes: '192x192' },
+        { src: currentSong.artwork, sizes: '512x512' },
       ],
     });
+  }, [currentSong]);
 
-    // 2. Update Playback State (Playing/Paused)
-    // This tells the browser which button (Play vs Pause) to show in the notification
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+    const audio = audioRef.current;
+    if (audio && Number.isFinite(audio.duration) && audio.duration > 0) {
+      try {
+        navigator.mediaSession.setPositionState({ duration: audio.duration, playbackRate: audio.playbackRate, position: Math.min(progress, audio.duration) });
+      } catch { /* Position state is optional. */ }
+    }
+  }, [isPlaying, progress]);
 
-    // 3. Set Action Handlers (Notification Buttons)
-    navigator.mediaSession.setActionHandler('play', () => togglePlay());
-    navigator.mediaSession.setActionHandler('pause', () => togglePlay());
-    navigator.mediaSession.setActionHandler('previoustrack', () => handlePrev());
-    navigator.mediaSession.setActionHandler('nexttrack', () => handleNext());
-    
-    // Optional: Add seeking support
-    navigator.mediaSession.setActionHandler('seekto', (details) => {
-      if (details.seekTime && audioRef.current) {
-        audioRef.current.currentTime = details.seekTime;
-        setProgress(details.seekTime); // Update your local UI state
-      }
-    });
+  const handlePageTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    const target = event.target;
+    if (target instanceof Element && target.closest('button, input, textarea, select, a, .overflow-x-auto')) {
+      pageTouchStartRef.current = null;
+      return;
+    }
+    pageTouchStartRef.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+  };
 
-    // Cleanup when component unmounts or dependencies change
-    return () => {
-      navigator.mediaSession.setActionHandler('play', null);
-      navigator.mediaSession.setActionHandler('pause', null);
-      navigator.mediaSession.setActionHandler('previoustrack', null);
-      navigator.mediaSession.setActionHandler('nexttrack', null);
-    };
-
-  }, [currentSong, isPlaying, togglePlay, handlePrev, handleNext]); // Re-run when these change
+  const handlePageTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
+    if (!pageTouchStartRef.current) return;
+    const deltaX = pageTouchStartRef.current.x - event.changedTouches[0].clientX;
+    const deltaY = pageTouchStartRef.current.y - event.changedTouches[0].clientY;
+    pageTouchStartRef.current = null;
+    if (Math.abs(deltaX) < 90 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+    const views: AppView[] = ['home', 'search', 'library'];
+    const nextIndex = Math.min(views.length - 1, Math.max(0, views.indexOf(activeView) + (deltaX > 0 ? 1 : -1)));
+    setActiveView(views[nextIndex]);
+  };
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-black relative overflow-hidden transition-colors duration-1000">
+    <div className="flex flex-col h-[100dvh] bg-[var(--color-bg)] relative overflow-hidden transition-colors duration-1000">
       <div className="fixed inset-0 pointer-events-none glow-overlay z-0" />
       
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-32 relative z-10">
+      <main onTouchStart={handlePageTouchStart} onTouchEnd={handlePageTouchEnd} className="flex-1 overflow-y-auto no-scrollbar pb-[220px] relative z-10">
         {activeView === 'home' && (
           <div className="animate-in fade-in duration-1000">
-            <HomeView onPlay={handlePlaySong} currentSong={currentSong} isPlaying={isPlaying} onAddClick={setSongToAddToPlaylist} onDownload={downloadSong} />
+            <HomeView
+              onPlay={handlePlaySong}
+              currentSong={currentSong}
+              isPlaying={isPlaying}
+              onAddClick={setSongToAddToPlaylist}
+              onDownload={downloadSong}
+              progress={progress}
+              isFavorite={songId => playlists.find(p => p.id === 'favs')?.songs.some(song => song.id === songId) || false}
+              onToggleFavorite={toggleFavorite}
+            />
           </div>
         )}
         {activeView === 'search' && (
           <div className="animate-in fade-in slide-in-from-right duration-700">
-            <SearchView onPlay={handlePlaySong} onAddClick={setSongToAddToPlaylist} onDownload={downloadSong} />
+            <SearchView
+              onPlay={handlePlaySong}
+              onAddClick={setSongToAddToPlaylist}
+              onDownload={downloadSong}
+              isFavorite={songId => playlists.find(playlist => playlist.id === 'favs')?.songs.some(song => song.id === songId) || false}
+              onToggleFavorite={toggleFavorite}
+            />
           </div>
         )}
         {activeView === 'library' && (
           <div className="animate-in fade-in slide-in-from-right duration-700">
-            <LibraryView playlists={playlists} setPlaylists={setPlaylists} onPlay={handlePlaySong} onRemoveFromPlaylist={(sid, pid) => setPlaylists(prev => prev.map(pl => pl.id === pid ? {...pl, songs: pl.songs.filter(s => s.id !== sid)} : pl))} onAddClick={setSongToAddToPlaylist} onDownload={downloadSong} />
+            <LibraryView playlists={playlists} setPlaylists={setPlaylists} onPlay={handlePlaySong} onRemoveFromPlaylist={(sid, pid) => setPlaylists(prev => prev.map(pl => pl.id === pid ? {...pl, songs: pl.songs.filter(s => s.id !== sid)} : pl))} onAddClick={setSongToAddToPlaylist} onDownload={downloadSong} onCreatePlaylist={createPlaylist} />
           </div>
         )}
       </main>
 
       <FloatingHub 
         song={currentSong} isPlaying={isPlaying} onToggle={togglePlay} activeView={activeView} setActiveView={setActiveView}
-        progress={progress} duration={duration} onOpenPlayer={() => setIsPlayerOpen(true)}
+        progress={progress} duration={duration} lyrics={currentSyncedLyrics} plainLyrics={currentLyrics} onOpenPlayer={() => setIsPlayerOpen(true)}
         analyser={analyserRef.current} dominantColor={dominantColor} onOpenChat={() => setIsChatOpen(true)}
         isFavorite={playlists.find(p => p.id === 'favs')?.songs.some(s => s.id === currentSong?.id) || false}
         onToggleFavorite={() => currentSong && toggleFavorite(currentSong)}
@@ -338,16 +551,16 @@ const App: React.FC = () => {
           onMoveQueueItem={(f, t) => setQueue(prev => { const n = [...prev]; const [i] = n.splice(f, 1); n.splice(t, 0, i); return n; })} 
           playlists={playlists} 
           onAddToPlaylist={(s, pid) => {
-            setPlaylists(prev => prev.map(p => p.id === pid ? {...p, songs: [...p.songs, s], artwork: s.artwork} : p));
+            setPlaylists(prev => prev.map(p => p.id === pid && !p.songs.some(item => item.id === s.id) ? {...p, songs: [...p.songs, s], artwork: s.artwork} : p));
             setSongToAddToPlaylist(null);
           }}
-          isFavorite={playlists.find(p => p.id === 'favs')?.songs.some(s => s.id === currentSong.id) || false}
-          onToggleFavorite={() => toggleFavorite(currentSong)}
-          onDownload={() => downloadSong(currentSong)}
-          onShare={() => navigator.share?.({ title: currentSong.title, url: currentSong.url }).catch(() => {})}
+          isFavorite={songId => playlists.find(p => p.id === 'favs')?.songs.some(s => s.id === songId) || false}
+          onToggleFavorite={toggleFavorite}
+          onDownload={downloadSong}
+          onShare={shareSong => navigator.share?.({ title: shareSong.title, url: shareSong.url }).catch(() => {})}
           isShuffle={isShuffle} onToggleShuffle={toggleShuffle}
           repeatMode={repeatMode} onToggleRepeat={toggleRepeat}
-          onShowPlaylistModal={() => setSongToAddToPlaylist(currentSong)}
+          onShowPlaylistModal={setSongToAddToPlaylist}
         />
       )}
 
@@ -355,12 +568,16 @@ const App: React.FC = () => {
         <ChatBotView 
           onClose={() => setIsChatOpen(false)} 
           dominantColor={dominantColor} 
+          currentSong={currentSong}
           playbackControls={{ 
             toggle: togglePlay, 
             next: handleNext, 
             prev: handlePrev,
             searchAndPlay,
-            addToFavorites: () => currentSong && toggleFavorite(currentSong),
+            recommendSongs,
+            addToFavorites: addCurrentToFavorites,
+            favoriteSong,
+            addSongToPlaylist,
             removeFromFavorites: () => currentSong && removeFromFavorites(currentSong),
             createPlaylist: (name: string) => createPlaylist(name),
             clearQueue: () => setQueue([currentSong!])
@@ -369,15 +586,15 @@ const App: React.FC = () => {
       )}
 
       {songToAddToPlaylist && (
-        <div className="fixed inset-0 z-[400] bg-black/95 backdrop-blur-3xl flex items-end animate-in fade-in slide-in-from-bottom duration-500" onClick={() => setSongToAddToPlaylist(null)}>
-          <div className="w-full bg-zinc-900/60 rounded-t-[48px] p-8 space-y-6 border-t border-white/10 shadow-[0_-20px_50px_rgba(0,0,0,0.8)]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[400] flex items-end justify-center bg-black/60 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-xl animate-in fade-in slide-in-from-bottom duration-300 sm:items-center" onClick={() => setSongToAddToPlaylist(null)}>
+          <div className="w-full max-w-lg max-h-[88dvh] overflow-y-auto rounded-[24px] border border-accent-tint bg-[var(--color-surface)] p-5 shadow-2xl sm:p-6" onClick={e => e.stopPropagation()}>
              <div className="flex justify-between items-center px-2">
-                <h3 className="text-2xl font-black tracking-tight">Add to Collection</h3>
+                <h3 className="text-xl font-bold tracking-tight">Add to playlist</h3>
                 <button onClick={() => setSongToAddToPlaylist(null)} className="p-3 bg-white/5 rounded-full text-white/40"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg></button>
              </div>
              <div className="space-y-4">
                 <div className="relative group">
-                  <input id="newPName" type="text" placeholder="New Playlist Name..." className="w-full bg-white/[0.03] rounded-3xl py-5 pl-7 pr-16 outline-none border border-white/5 focus:border-accent/40 transition-all font-bold" />
+                  <input id="newPName" type="text" placeholder="New playlist name" className="w-full bg-white/[0.04] rounded-[14px] py-4 pl-4 pr-14 outline-none border border-white/[0.08] focus:border-accent/40 transition-all font-medium" />
                   <button onClick={() => {
                     const el = document.getElementById('newPName') as HTMLInputElement;
                     if (el.value.trim()) {
@@ -385,15 +602,15 @@ const App: React.FC = () => {
                       setPlaylists(prev => prev.map(pl => pl.id === p.id ? {...pl, songs: [songToAddToPlaylist], artwork: songToAddToPlaylist.artwork} : pl));
                       setSongToAddToPlaylist(null);
                     }
-                  }} className="absolute right-2 top-2 bottom-2 aspect-square bg-accent rounded-2xl flex items-center justify-center text-white shadow-accent active:scale-90 transition-all"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"></path></svg></button>
+                  }} aria-label="Create playlist" className="absolute right-2 top-2 bottom-2 aspect-square bg-accent rounded-[10px] flex items-center justify-center text-[#06101e] shadow-accent active:scale-90 transition-all"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"></path></svg></button>
                 </div>
                 <div className="max-h-[40vh] overflow-y-auto space-y-3 no-scrollbar pb-6 px-1">
                   {playlists.map(p => (
                      <button key={p.id} onClick={() => {
                         setPlaylists(prev => prev.map(pl => pl.id === p.id ? {...pl, songs: [...pl.songs, songToAddToPlaylist], artwork: songToAddToPlaylist.artwork} : pl));
                         setSongToAddToPlaylist(null);
-                     }} className="w-full flex items-center gap-5 p-4 rounded-[28px] bg-white/[0.02] hover:bg-white/[0.06] transition-all border border-white/5 group">
-                       <img src={p.artwork} className="w-14 h-14 rounded-2xl object-cover shadow-lg group-hover:scale-105 transition-transform" />
+                     }} className="w-full flex items-center gap-4 p-3 rounded-[16px] bg-white/[0.035] hover:bg-white/[0.07] transition-all border border-white/[0.07] group">
+                       <img src={p.artwork} className="w-12 h-12 rounded-xl object-cover shadow-lg" />
                        <div className="text-left flex-1">
                         <span className="font-black text-sm block">{p.name}</span>
                         <span className="text-[10px] text-white/20 uppercase font-black tracking-widest">{p.songs.length} Tracks</span>

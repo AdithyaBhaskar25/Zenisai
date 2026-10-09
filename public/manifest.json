@@ -5,8 +5,8 @@
   "description": "Premium AI-powered music experience.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#a855f7",
+  "background_color": "#030711",
+  "theme_color": "#3b82f6",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/17375/17375348.png",

@@ -22,6 +22,17 @@ To get a local copy up and running, follow these simple steps.
 
 You just need a modern web browser. To test the service worker, you'll need to run it from a local server. The easiest way is using the `live-server` VS Code extension or a simple Python server.
 
+### AI Assistant Setup
+
+The text and live-voice assistants require a Google Gemini API key. Copy `.env.example` to `.env.local`, replace the placeholder with a key enabled for the Gemini API, and restart Vite:
+
+```sh
+cp .env.example .env.local
+npm run dev
+```
+
+The key is ignored by Git through the `*.local` rule. In Vercel, set `GEMINI_API_KEY` in the project's environment variables. Text requests run in `/api/assistant`; live voice uses a short-lived token from `/api/live-token`, so the permanent key is not sent to the browser. Restrict the key's API access and quota in Google Cloud.
+
 ### Installation
 
 1.  **Clone the repo:**

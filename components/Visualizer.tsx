@@ -3,14 +3,15 @@ import React, { useEffect, useRef } from 'react';
 interface VisualizerProps {
   analyser: AnalyserNode | null;
   color: string;
+  isPlaying: boolean;
   className?: string;
 }
 
-const Visualizer: React.FC<VisualizerProps> = ({ analyser, color, className = "w-full h-full" }) => {
+const Visualizer: React.FC<VisualizerProps> = ({ analyser, color, isPlaying, className = "w-full h-full" }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!analyser || !canvasRef.current) return;
+    if (!analyser || !canvasRef.current || !isPlaying) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -76,7 +77,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ analyser, color, className = "w
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [analyser, color]);
+  }, [analyser, color, isPlaying]);
 
   return (
     <canvas 
