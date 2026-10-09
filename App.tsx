@@ -10,13 +10,28 @@ import LibraryView from './components/LibraryView';
 import ChatBotView from './components/ChatBotView';
 
 const App: React.FC = () => {
-  const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const [currentSong, setCurrentSong] = useState<Song | null>(() => {
+    try {
+      const saved = localStorage.getItem('zenisai_current_song');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
   const [isPlaying, setIsPlaying] = useState(false);
   const [activeView, setActiveView] = useState<AppView>('home');
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [queue, setQueue] = useState<Song[]>([]);
-  const [originalQueue, setOriginalQueue] = useState<Song[]>([]);
+  const [queue, setQueue] = useState<Song[]>(() => {
+    try {
+      const saved = localStorage.getItem('zenisai_queue');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
+  const [originalQueue, setOriginalQueue] = useState<Song[]>(() => {
+    try {
+      const saved = localStorage.getItem('zenisai_orig_queue');
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
   const [playlists, setPlaylists] = useState<Playlist[]>(() => {
     const saved = localStorage.getItem('zenisai_v10_playlists');
     const parsed = saved ? JSON.parse(saved) : [
@@ -25,7 +40,12 @@ const App: React.FC = () => {
     return parsed.filter((p: Playlist) => p.songs.length > 0 || p.id === 'favs');
   });
   
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('zenisai_playback_time');
+      return saved ? parseFloat(saved) || 0 : 0;
+    } catch { return 0; }
+  });
   const [duration, setDuration] = useState(0);
   const [sleepTimer, setSleepTimer] = useState<number | null>(null);
   const [currentLyrics, setCurrentLyrics] = useState<string>('');
@@ -33,8 +53,17 @@ const App: React.FC = () => {
   const [dominantColor, setDominantColor] = useState('#3b82f6');
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<Song | null>(null);
 
-  const [repeatMode, setRepeatMode] = useState<'off' | 'one' | 'all'>('off');
-  const [isShuffle, setIsShuffle] = useState(false);
+  const [repeatMode, setRepeatMode] = useState<'off' | 'one' | 'all'>(() => {
+    try {
+      const saved = localStorage.getItem('zenisai_repeat_mode');
+      return (saved as any) || 'off';
+    } catch { return 'off'; }
+  });
+  const [isShuffle, setIsShuffle] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('zenisai_shuffle') === 'true';
+    } catch { return false; }
+  });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -42,10 +71,50 @@ const App: React.FC = () => {
   const handleTrackEndedRef = useRef<() => void>(() => {});
   const mediaActionsRef = useRef({ play: () => {}, pause: () => {}, next: () => {}, prev: () => {} });
   const pageTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lastSavedTimeRef = useRef<number>(0);
 
   useEffect(() => {
     localStorage.setItem('zenisai_v10_playlists', JSON.stringify(playlists));
   }, [playlists]);
+
+  useEffect(() => {
+    if (currentSong) {
+      localStorage.setItem('zenisai_current_song', JSON.stringify(currentSong));
+    }
+  }, [currentSong]);
+
+  useEffect(() => {
+    localStorage.setItem('zenisai_queue', JSON.stringify(queue));
+  }, [queue]);
+
+  useEffect(() => {
+    localStorage.setItem('zenisai_orig_queue', JSON.stringify(originalQueue));
+  }, [originalQueue]);
+
+  useEffect(() => {
+    localStorage.setItem('zenisai_repeat_mode', repeatMode);
+  }, [repeatMode]);
+
+  useEffect(() => {
+    localStorage.setItem('zenisai_shuffle', String(isShuffle));
+  }, [isShuffle]);
+
+  useEffect(() => {
+    const saveCurrentTime = () => {
+      if (audioRef.current && audioRef.current.currentTime > 0) {
+        localStorage.setItem('zenisai_playback_time', String(audioRef.current.currentTime));
+      }
+    };
+    window.addEventListener('beforeunload', saveCurrentTime);
+    window.addEventListener('pagehide', saveCurrentTime);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') saveCurrentTime();
+    });
+    return () => {
+      window.removeEventListener('beforeunload', saveCurrentTime);
+      window.removeEventListener('pagehide', saveCurrentTime);
+    };
+  }, []);
 
   useEffect(() => {
     if (sleepTimer !== null) {
@@ -71,8 +140,13 @@ const App: React.FC = () => {
     }
     const audio = audioRef.current;
     const updateProgress = () => {
-      setProgress(audio.currentTime);
+      const cur = audio.currentTime;
+      setProgress(cur);
       setDuration(audio.duration || 0);
+      if (Math.abs(cur - lastSavedTimeRef.current) > 1.2) {
+        lastSavedTimeRef.current = cur;
+        localStorage.setItem('zenisai_playback_time', String(cur));
+      }
     };
     const updatePlaying = () => setIsPlaying(!audio.paused && !audio.ended);
     const handleEnded = () => handleTrackEndedRef.current();
@@ -90,6 +164,46 @@ const App: React.FC = () => {
       audio.removeEventListener('pause', updatePlaying);
       audio.removeEventListener('ended', handleEnded);
     };
+  }, []);
+
+  useEffect(() => {
+    const restorePlayback = async () => {
+      const savedSongStr = localStorage.getItem('zenisai_current_song');
+      if (!savedSongStr) return;
+      try {
+        const savedSong: Song = JSON.parse(savedSongStr);
+        if (!savedSong?.url) return;
+        const savedTime = parseFloat(localStorage.getItem('zenisai_playback_time') || '0');
+
+        if (audioRef.current) {
+          audioRef.current.src = savedSong.url;
+          audioRef.current.currentTime = savedTime > 0 ? savedTime : 0;
+          updateThemeFromImage(savedSong.artwork);
+          fetchLyrics(savedSong);
+
+          const playPromise = audioRef.current.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => setIsPlaying(true))
+              .catch(() => {
+                const startOnInteraction = () => {
+                  if (audioRef.current && audioRef.current.paused) {
+                    playAudio();
+                  }
+                  window.removeEventListener('pointerdown', startOnInteraction);
+                  window.removeEventListener('keydown', startOnInteraction);
+                };
+                window.addEventListener('pointerdown', startOnInteraction, { once: true });
+                window.addEventListener('keydown', startOnInteraction, { once: true });
+              });
+          }
+        }
+      } catch (err) {
+        console.warn('Playback restoration notice:', err);
+      }
+    };
+
+    restorePlayback();
   }, []);
 
   const playAudio = () => {
@@ -498,7 +612,7 @@ const App: React.FC = () => {
       
       <main onTouchStart={handlePageTouchStart} onTouchEnd={handlePageTouchEnd} className="flex-1 overflow-y-auto no-scrollbar pb-[220px] relative z-10">
         {activeView === 'home' && (
-          <div className="animate-in fade-in duration-1000">
+          <div className="animate-in fade-in duration-200">
             <HomeView
               onPlay={handlePlaySong}
               currentSong={currentSong}
@@ -512,7 +626,7 @@ const App: React.FC = () => {
           </div>
         )}
         {activeView === 'search' && (
-          <div className="animate-in fade-in slide-in-from-right duration-700">
+          <div className="animate-in fade-in duration-200">
             <SearchView
               onPlay={handlePlaySong}
               onAddClick={setSongToAddToPlaylist}
@@ -523,7 +637,7 @@ const App: React.FC = () => {
           </div>
         )}
         {activeView === 'library' && (
-          <div className="animate-in fade-in slide-in-from-right duration-700">
+          <div className="animate-in fade-in duration-200">
             <LibraryView playlists={playlists} setPlaylists={setPlaylists} onPlay={handlePlaySong} onRemoveFromPlaylist={(sid, pid) => setPlaylists(prev => prev.map(pl => pl.id === pid ? {...pl, songs: pl.songs.filter(s => s.id !== sid)} : pl))} onAddClick={setSongToAddToPlaylist} onDownload={downloadSong} onCreatePlaylist={createPlaylist} />
           </div>
         )}

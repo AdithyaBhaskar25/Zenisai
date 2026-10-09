@@ -29,12 +29,10 @@ async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: 
 
 function assistantErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes('Gemini is not configured')) return message;
-  if (/api.?key|unauthorized|permission denied|\b401\b|\b403\b/i.test(message)) return 'Gemini rejected the configured API key. Check that it is valid and enabled for the Generative Language API.';
-  if (/quota|resource exhausted|\b429\b|rate limit/i.test(message)) return 'The Gemini API quota is currently exhausted. Check billing and usage, then try again.';
   if (/notallowederror|permission.*microphone/i.test(message)) return 'Microphone access was denied. Allow microphone access in your browser settings and try again.';
-  if (/network|fetch|timeout|offline/i.test(message)) return 'Could not reach Gemini. Check your internet connection and try again.';
-  return 'Gemini could not complete the request. Check API access and try again.';
+  if (/quota|resource exhausted|\b429\b|rate limit/i.test(message)) return 'The Gemini API quota is currently exhausted. Please try again in a moment.';
+  if (/network|fetch|timeout|offline/i.test(message)) return 'Network issue: Could not reach assistant. Please check your connection and try again.';
+  return message || 'Zenisai assistant could not complete the request. Please try again.';
 }
 
 const ChatBotView: React.FC<ChatBotViewProps> = ({ onClose, dominantColor, currentSong, playbackControls }) => {
@@ -44,17 +42,9 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onClose, dominantColor, curre
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [isLiveActive, setIsLiveActive] = useState(false);
+  const [liveTranscript, setLiveTranscript] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Live Session Refs (Logic preserved)
-  const liveSessionRef = useRef<any>(null);
-  const inputAudioCtxRef = useRef<AudioContext | null>(null);
-  const outputAudioCtxRef = useRef<AudioContext | null>(null);
-  const mediaStreamRef = useRef<MediaStream | null>(null);
-  const inputSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-  const inputProcessorRef = useRef<ScriptProcessorNode | null>(null);
-  const nextStartTimeRef = useRef(0);
-  const sourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const recognitionRef = useRef<any>(null);
 
   const executePlaybackTool = async (name: string, args: Record<string, any>): Promise<string> => {
     if (name === 'togglePlayback') playbackControls.toggle();
@@ -77,110 +67,88 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onClose, dominantColor, curre
     }
   }, [messages, isLiveActive]);
 
-  useEffect(() => { return () => stopLiveSession(); }, []);
+  useEffect(() => { 
+    return () => {
+      stopVoiceSession();
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    }; 
+  }, []);
 
-  const stopLiveSession = () => {
-    if (liveSessionRef.current) { liveSessionRef.current.close(); liveSessionRef.current = null; }
-    inputProcessorRef.current?.disconnect();
-    inputProcessorRef.current = null;
-    inputSourceRef.current?.disconnect();
-    inputSourceRef.current = null;
-    mediaStreamRef.current?.getTracks().forEach(track => track.stop());
-    mediaStreamRef.current = null;
-    if (inputAudioCtxRef.current) { inputAudioCtxRef.current.close(); inputAudioCtxRef.current = null; }
-    if (outputAudioCtxRef.current) { outputAudioCtxRef.current.close(); outputAudioCtxRef.current = null; }
-    sourcesRef.current.forEach(s => s.stop());
-    sourcesRef.current.clear();
+  const stopVoiceSession = () => {
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch {}
+      recognitionRef.current = null;
+    }
     setIsLiveActive(false);
+    setLiveTranscript('');
   };
 
-  const startLiveSession = async () => {
-    if (isLiveActive) { stopLiveSession(); return; }
-    setIsLiveActive(true);
+  const startVoiceSession = () => {
+    if (isLiveActive) {
+      stopVoiceSession();
+      return;
+    }
+
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      setMessages(prev => [...prev, { role: 'bot', text: 'Voice recognition is not supported in this browser. You can type your music request below!' }]);
+      return;
+    }
+
     try {
-      const tokenResponse = await fetch('/api/live-token', { method: 'POST' });
-      const tokenPayload = await tokenResponse.json().catch(() => ({}));
-      if (!tokenResponse.ok || typeof tokenPayload.token !== 'string') {
-        throw new Error(tokenPayload.error || `Live voice setup failed (${tokenResponse.status}).`);
-      }
-      const ai = new GoogleGenAI({ apiKey: tokenPayload.token });
-      inputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-      outputAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaStreamRef.current = stream;
-      if (!inputAudioCtxRef.current) {
-        stream.getTracks().forEach(track => track.stop());
-        mediaStreamRef.current = null;
-        return;
-      }
-      const sessionPromise = ai.live.connect({
-        model: 'gemini-2.5-flash-native-audio-preview-12-2025',
-        callbacks: {
-          onopen: () => {
-            const inputContext = inputAudioCtxRef.current;
-            if (!inputContext) return;
-            const source = inputContext.createMediaStreamSource(stream);
-            const scriptProcessor = inputContext.createScriptProcessor(4096, 1, 1);
-            inputSourceRef.current = source;
-            inputProcessorRef.current = scriptProcessor;
-            scriptProcessor.onaudioprocess = (e) => {
-              const inputData = e.inputBuffer.getChannelData(0);
-              const int16 = new Int16Array(inputData.length);
-              for (let i = 0; i < inputData.length; i++) { int16[i] = inputData[i] * 32768; }
-              const base64 = encodeBase64(new Uint8Array(int16.buffer));
-              sessionPromise.then(session => { session.sendRealtimeInput({ media: { data: base64, mimeType: 'audio/pcm;rate=16000' } }); });
-            };
-            source.connect(scriptProcessor);
-            scriptProcessor.connect(inputContext.destination);
-          },
-          onmessage: async (message: LiveServerMessage) => {
-            if (message.toolCall) {
-              for (const fc of message.toolCall.functionCalls) {
-                let result = 'ok';
-                try {
-                  result = await executePlaybackTool(fc.name, fc.args as Record<string, any>);
-                } catch (e) { result = 'Unable to complete that music action.'; }
-                sessionPromise.then(session => { session.sendToolResponse({ functionResponses: { id: fc.id, name: fc.name, response: { result } } }); });
-              }
-            }
-            const audioData = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-            if (audioData && outputAudioCtxRef.current) {
-              const ctx = outputAudioCtxRef.current;
-              const bytes = decodeBase64(audioData);
-              const buffer = await decodeAudioData(bytes, ctx, 24000, 1);
-              const source = ctx.createBufferSource();
-              source.buffer = buffer;
-              source.connect(ctx.destination);
-              nextStartTimeRef.current = Math.max(nextStartTimeRef.current, ctx.currentTime);
-              source.start(nextStartTimeRef.current);
-              nextStartTimeRef.current += buffer.duration;
-              sourcesRef.current.add(source);
-              source.onended = () => sourcesRef.current.delete(source);
-            }
-            if (message.serverContent?.interrupted) { sourcesRef.current.forEach(s => s.stop()); sourcesRef.current.clear(); nextStartTimeRef.current = 0; }
-          },
-          onerror: (e) => { console.error('Gemini live session failed', e); stopLiveSession(); setMessages(prev => [...prev, { role: 'bot', text: assistantErrorMessage(e) }]); },
-          onclose: () => setIsLiveActive(false)
-        },
-        config: {
-          responseModalities: [Modality.AUDIO],
-          systemInstruction: "You are Zenisai assistant...",
-          tools: [{ functionDeclarations: CONTROL_PLAYBACK_FUNCTIONS }],
-          speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Zephyr' } } }
+      const recognition = new SpeechRec();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        setIsLiveActive(true);
+        setLiveTranscript('');
+      };
+
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          transcript += event.results[i][0].transcript;
         }
-      });
-      liveSessionRef.current = await sessionPromise;
-    } catch (error) { stopLiveSession(); setMessages(prev => [...prev, { role: 'bot', text: assistantErrorMessage(error) }]); }
+        setLiveTranscript(transcript);
+        if (event.results[0]?.isFinal) {
+          stopVoiceSession();
+          handleSend(transcript);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition error', event.error);
+        stopVoiceSession();
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          setMessages(prev => [...prev, { role: 'bot', text: `Voice input notice: ${event.error}. You can also type your message.` }]);
+        }
+      };
+
+      recognition.onend = () => {
+        setIsLiveActive(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (e) {
+      console.error('Failed to start speech recognition', e);
+      setIsLiveActive(false);
+      setMessages(prev => [...prev, { role: 'bot', text: assistantErrorMessage(e) }]);
+    }
   };
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
-    const userMsg = input;
+  const handleSend = async (overrideText?: string) => {
+    const textToSend = (typeof overrideText === 'string' ? overrideText : input).trim();
+    if (!textToSend || loading) return;
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setMessages(prev => [...prev, { role: 'user', text: textToSend }]);
     setLoading(true);
     try {
-      const { text, functionCalls } = await getGeminiChatResponse(userMsg);
+      const { text, functionCalls } = await getGeminiChatResponse(textToSend);
       const actionResults: string[] = [];
       if (functionCalls) {
         for (const fc of functionCalls) {
@@ -190,10 +158,20 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onClose, dominantColor, curre
       }
       const responseText = [text || 'Processed your request.', ...actionResults].filter(Boolean).join('\n');
       setMessages(prev => [...prev, { role: 'bot', text: responseText }]);
+      
+      if (typeof window !== 'undefined' && window.speechSynthesis && overrideText) {
+        try {
+          const utterance = new SpeechSynthesisUtterance(responseText);
+          utterance.rate = 1.05;
+          window.speechSynthesis.speak(utterance);
+        } catch {}
+      }
     } catch (err) {
       console.error('Gemini chat request failed', err);
       setMessages(prev => [...prev, { role: 'bot', text: assistantErrorMessage(err) }]);
-    } finally { setLoading(false); }
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   return (
@@ -259,6 +237,9 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onClose, dominantColor, curre
               </div>
             </div>
             <p className="mt-8 text-xs font-black uppercase tracking-[0.4em] text-white/40 animate-pulse">Assistant Listening</p>
+            {liveTranscript && (
+              <p className="mt-4 px-6 max-w-md text-center text-sm font-medium text-white/90 italic animate-in fade-in">"{liveTranscript}"</p>
+            )}
           </div>
         )}
 
@@ -282,12 +263,12 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onClose, dominantColor, curre
               value={input} 
               onChange={e => setInput(e.target.value)} 
               onKeyDown={e => e.key === 'Enter' && handleSend()} 
-              placeholder={isLiveActive ? "End voice session to type..." : "Request a song..."} 
+              placeholder={isLiveActive ? "Listening to your voice..." : "Request a song..."} 
               disabled={isLiveActive}
               className="w-full bg-white/[0.04] rounded-[16px] py-4 pl-5 pr-14 outline-none border border-white/[0.08] focus:border-accent/40 focus:bg-white/[0.07] transition-all text-sm placeholder:text-white/30 disabled:opacity-20"
             />
             <button 
-              onClick={handleSend} 
+              onClick={() => handleSend()} 
               disabled={isLiveActive || !input.trim()}
               className="absolute right-2 top-2 bottom-2 aspect-square bg-accent text-[#06101e] rounded-[12px] flex items-center justify-center hover:brightness-110 active:scale-95 transition-transform disabled:opacity-0"
             >
@@ -296,10 +277,10 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onClose, dominantColor, curre
           </div>
 
           <button 
-            onClick={startLiveSession}
+            onClick={startVoiceSession}
             className={`w-12 h-12 rounded-[16px] flex items-center justify-center shadow-lg transition-all duration-300 active:scale-90 border ${
               isLiveActive 
-                ? 'bg-red-500 text-white border-red-400 rotate-90' 
+                ? 'bg-red-500 text-white border-red-400 rotate-90 shadow-red-500/30' 
                 : 'bg-white/10 text-white border-white/10 hover:bg-white/20'
             }`}
           >

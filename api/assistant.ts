@@ -16,7 +16,7 @@ export default async function handler(request: JsonRequest, response: ServerResp
 
   const apiKey = getServerGeminiApiKey();
   if (!apiKey) {
-    sendJson(response, 503, { error: 'Gemini is not configured. Add GEMINI_API_KEY to the Vercel environment variables.' });
+    sendJson(response, 503, { error: 'Gemini assistant is not configured. GEMINI_API_KEY environment variable is missing.' });
     return;
   }
 
@@ -31,15 +31,36 @@ export default async function handler(request: JsonRequest, response: ServerResp
       return;
     }
 
-    const ai = new GoogleGenAI({ apiKey });
-    const result = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: body.message,
-      config: {
-        systemInstruction: GEMINI_SYSTEM_INSTRUCTION,
-        tools: [{ functionDeclarations: CONTROL_PLAYBACK_FUNCTIONS }],
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
       },
     });
+
+    let result;
+    try {
+      result = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview',
+        contents: body.message,
+        config: {
+          systemInstruction: GEMINI_SYSTEM_INSTRUCTION,
+          tools: [{ functionDeclarations: CONTROL_PLAYBACK_FUNCTIONS }],
+        },
+      });
+    } catch (modelErr) {
+      console.warn('Falling back to gemini-3.8-flash for assistant:', modelErr);
+      result = await ai.models.generateContent({
+        model: 'gemini-3.8-flash',
+        contents: body.message,
+        config: {
+          systemInstruction: GEMINI_SYSTEM_INSTRUCTION,
+          tools: [{ functionDeclarations: CONTROL_PLAYBACK_FUNCTIONS }],
+        },
+      });
+    }
 
     sendJson(response, 200, { text: result.text ?? '', functionCalls: result.functionCalls ?? [] });
   } catch (error) {

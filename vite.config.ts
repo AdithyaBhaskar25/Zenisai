@@ -6,12 +6,22 @@ import liveTokenHandler from './api/live-token';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
-  const geminiApiKey = env.GEMINI_API_KEY || env.API_KEY;
+  const candidateKeys = [
+    env.GEMINI_API_KEY,
+    env.API_KEY,
+    process.env.GEMINI_API_KEY,
+    process.env.API_KEY,
+  ];
+  const geminiApiKey = candidateKeys.find(k => typeof k === 'string' && k.trim() && !k.includes('MY_GEMINI')) || '';
+  if (geminiApiKey) {
+    process.env.GEMINI_API_KEY = geminiApiKey;
+  }
 
   return {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      allowedHosts: true,
     },
     plugins: [
       react(),
