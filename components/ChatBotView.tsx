@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { getGeminiChatResponse, CONTROL_PLAYBACK_FUNCTIONS } from '../services/geminiService';
-import { GoogleGenAI, Modality, LiveServerMessage } from '@google/genai';
+import { getGeminiChatResponse } from '../services/geminiService';
 import { Song } from '../types';
 
 interface ChatBotViewProps {
@@ -21,11 +20,6 @@ interface ChatBotViewProps {
     clearQueue: () => void;
   };
 }
-
-// Keeping your original helpers intact
-function decodeBase64(base64: string) { const binaryString = atob(base64); const bytes = new Uint8Array(binaryString.length); for (let i = 0; i < binaryString.length; i++) { bytes[i] = binaryString.charCodeAt(i); } return bytes; }
-function encodeBase64(bytes: Uint8Array) { let binary = ''; for (let i = 0; i < bytes.byteLength; i++) { binary += String.fromCharCode(bytes[i]); } return btoa(binary); }
-async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> { const dataInt16 = new Int16Array(data.buffer); const frameCount = dataInt16.length / numChannels; const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate); for (let channel = 0; channel < numChannels; channel++) { const channelData = buffer.getChannelData(channel); for (let i = 0; i < frameCount; i++) { channelData[i] = dataInt16[i * numChannels + channel] / 32768.0; } } return buffer; }
 
 function assistantErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
