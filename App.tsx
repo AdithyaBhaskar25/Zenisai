@@ -1,7 +1,7 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Song, AppView, Playlist } from './types';
 import { saavnService } from './services/saavnService';
+import { lyricsService, ParsedLyricLine } from './services/lyricsService';
 import PlayerFull from './components/PlayerFull';
 import FloatingHub from './components/FloatingHub';
 import HomeView from './components/HomeView';
@@ -50,6 +50,8 @@ const App: React.FC = () => {
   const [sleepTimer, setSleepTimer] = useState<number | null>(null);
   const [currentLyrics, setCurrentLyrics] = useState<string>('');
   const [currentSyncedLyrics, setCurrentSyncedLyrics] = useState<string>('');
+  const [currentParsedLyrics, setCurrentParsedLyrics] = useState<ParsedLyricLine[]>([]);
+  const [currentPlainLyrics, setCurrentPlainLyrics] = useState<string[]>([]);
   const [dominantColor, setDominantColor] = useState('#3b82f6');
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<Song | null>(null);
 
@@ -72,6 +74,36 @@ const App: React.FC = () => {
   const mediaActionsRef = useRef({ play: () => {}, pause: () => {}, next: () => {}, prev: () => {} });
   const pageTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const lastSavedTimeRef = useRef<number>(0);
+  const wakeLockSentinelRef = useRef<any>(null);
+
+  // Screen Wake Lock API for background & active playback persistence
+  const requestWakeLock = useCallback(async () => {
+    try {
+      if ('wakeLock' in navigator && !wakeLockSentinelRef.current) {
+        wakeLockSentinelRef.current = await (navigator as any).wakeLock.request('screen');
+        wakeLockSentinelRef.current.addEventListener('release', () => {
+          wakeLockSentinelRef.current = null;
+        });
+      }
+    } catch {}
+  }, []);
+
+  const releaseWakeLock = useCallback(() => {
+    if (wakeLockSentinelRef.current) {
+      try {
+        wakeLockSentinelRef.current.release();
+      } catch {}
+      wakeLockSentinelRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isPlaying) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+  }, [isPlaying, requestWakeLock, releaseWakeLock]);
 
   useEffect(() => {
     localStorage.setItem('zenisai_v10_playlists', JSON.stringify(playlists));
@@ -99,22 +131,45 @@ const App: React.FC = () => {
     localStorage.setItem('zenisai_shuffle', String(isShuffle));
   }, [isShuffle]);
 
+  // Keep native loop property synchronized for 100% reliable hardware repeat one
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.loop = (repeatMode === 'one');
+    }
+  }, [repeatMode]);
+
   useEffect(() => {
     const saveCurrentTime = () => {
       if (audioRef.current && audioRef.current.currentTime > 0) {
         localStorage.setItem('zenisai_playback_time', String(audioRef.current.currentTime));
       }
     };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        saveCurrentTime();
+        // Keep web audio context alive when tab is in background
+        if (analyserRef.current?.context && analyserRef.current.context.state === 'suspended') {
+          analyserRef.current.context.resume().catch(() => {});
+        }
+      } else if (document.visibilityState === 'visible') {
+        if (isPlaying) {
+          requestWakeLock();
+          if (analyserRef.current?.context && analyserRef.current.context.state === 'suspended') {
+            analyserRef.current.context.resume().catch(() => {});
+          }
+        }
+      }
+    };
+
     window.addEventListener('beforeunload', saveCurrentTime);
     window.addEventListener('pagehide', saveCurrentTime);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') saveCurrentTime();
-    });
+    document.addEventListener('visibilitychange', handleVisibility);
     return () => {
       window.removeEventListener('beforeunload', saveCurrentTime);
       window.removeEventListener('pagehide', saveCurrentTime);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []);
+  }, [isPlaying, requestWakeLock]);
 
   useEffect(() => {
     if (sleepTimer !== null) {
@@ -133,9 +188,11 @@ const App: React.FC = () => {
       audioRef.current = new Audio();
       audioRef.current.crossOrigin = "anonymous";
       audioRef.current.preload = 'auto';
-      audioRef.current.setAttribute('playsinline', '');
+      audioRef.current.setAttribute('playsinline', 'true');
       try {
-        (navigator as any).audioSession.type = 'playback';
+        if ('audioSession' in navigator) {
+          (navigator as any).audioSession.type = 'playback';
+        }
       } catch { /* Audio Session is not available in every browser. */ }
     }
     const audio = audioRef.current;
@@ -148,14 +205,26 @@ const App: React.FC = () => {
         localStorage.setItem('zenisai_playback_time', String(cur));
       }
     };
-    const updatePlaying = () => setIsPlaying(!audio.paused && !audio.ended);
+    const updatePlaying = () => {
+      const active = !audio.paused && !audio.ended;
+      setIsPlaying(active);
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = active ? 'playing' : 'paused';
+      }
+    };
     const handleEnded = () => handleTrackEndedRef.current();
+    const handleError = (e: any) => {
+      console.warn('Audio playback recovery notice:', e);
+    };
+
     audio.addEventListener('timeupdate', updateProgress);
     audio.addEventListener('loadedmetadata', updateProgress);
     audio.addEventListener('durationchange', updateProgress);
     audio.addEventListener('play', updatePlaying);
     audio.addEventListener('pause', updatePlaying);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
+
     return () => {
       audio.removeEventListener('timeupdate', updateProgress);
       audio.removeEventListener('loadedmetadata', updateProgress);
@@ -163,6 +232,7 @@ const App: React.FC = () => {
       audio.removeEventListener('play', updatePlaying);
       audio.removeEventListener('pause', updatePlaying);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
     };
   }, []);
 
@@ -226,6 +296,23 @@ const App: React.FC = () => {
   };
   handleTrackEndedRef.current = handleTrackEnded;
 
+  // Background Preloader: Resolves upcoming song URLs so background track changes are synchronous & unkillable
+  useEffect(() => {
+    if (!currentSong || queue.length === 0) return;
+    const currentIndex = queue.findIndex(s => s.id === currentSong.id);
+    const nextIndex = currentIndex >= 0 && currentIndex < queue.length - 1 ? currentIndex + 1 : (repeatMode === 'all' ? 0 : -1);
+    if (nextIndex >= 0 && queue[nextIndex] && !queue[nextIndex].url) {
+      const nextSong = queue[nextIndex];
+      saavnService.getSongDetails(nextSong.id).then(details => {
+        const mapped = saavnService.mapSong(details);
+        if (mapped?.url) {
+          setQueue(prev => prev.map(s => s.id === mapped.id ? { ...s, url: mapped.url } : s));
+          setOriginalQueue(prev => prev.map(s => s.id === mapped.id ? { ...s, url: mapped.url } : s));
+        }
+      }).catch(() => {});
+    }
+  }, [currentSong?.id, queue.length, repeatMode]);
+
   const updateThemeFromImage = (imageUrl: string) => {
     const img = new Image();
     img.crossOrigin = "Anonymous";
@@ -284,34 +371,22 @@ const App: React.FC = () => {
     };
   };
 
+  // Requirement 6: Centralized lyrics fetch shared reliably across mini player and full player
   const fetchLyrics = async (song: Song) => {
     setCurrentLyrics('Fetching lyrics...');
     setCurrentSyncedLyrics('');
     try {
-      const exactParams = new URLSearchParams({
-        artist_name: song.artist,
-        track_name: song.title,
-        duration: String(Math.round(song.duration || 0)),
-      });
-      const exactResponse = await fetch(`https://lrclib.net/api/get?${exactParams}`);
-      let lyricData = exactResponse.ok ? await exactResponse.json() : null;
-      if (!lyricData?.syncedLyrics) {
-        const searchParams = new URLSearchParams({ artist_name: song.artist, track_name: song.title });
-        const searchResponse = await fetch(`https://lrclib.net/api/search?${searchParams}`);
-        const matches = searchResponse.ok ? await searchResponse.json() : [];
-        lyricData = matches.find((match: any) => match.syncedLyrics) ?? matches[0] ?? null;
-      }
-      if (lyricData?.syncedLyrics) {
-        setCurrentSyncedLyrics(lyricData.syncedLyrics);
-        setCurrentLyrics(lyricData.syncedLyrics.replace(/\[\d+:\d+(?:\.\d+)?\]/g, '').trim());
-        return;
-      }
-    } catch { /* Fall back to the catalog's plain lyric endpoint. */ }
-    try {
-      const res = await fetch(`https://jiosaavn-api.vercel.app/lyrics?id=${song.id}`);
-      const data = await res.json();
-      setCurrentLyrics(data.lyrics ? data.lyrics.replace(/<br>/g, '\n') : 'No lyrics available.');
-    } catch { setCurrentLyrics('Lyrics unavailable.'); }
+      const res = await lyricsService.fetchLyrics(song);
+      setCurrentParsedLyrics(res.syncedLyrics);
+      setCurrentPlainLyrics(res.plainLyrics);
+      setCurrentSyncedLyrics(res.rawSynced);
+      setCurrentLyrics(res.plainLyrics.join('\n'));
+    } catch {
+      setCurrentLyrics('Lyrics unavailable.');
+      setCurrentParsedLyrics([]);
+      setCurrentPlainLyrics([]);
+      setCurrentSyncedLyrics('');
+    }
   };
 
   const setQueueForSelection = (selectedSong: Song, songs: Song[]) => {
@@ -339,13 +414,17 @@ const App: React.FC = () => {
       } catch (e) { return; }
     }
     if (!analyserRef.current) {
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioContextClass();
-      analyserRef.current = ctx.createAnalyser();
-      analyserRef.current.fftSize = 64;
-      const source = ctx.createMediaElementSource(audioRef.current);
-      source.connect(analyserRef.current);
-      analyserRef.current.connect(ctx.destination);
+      try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioContextClass();
+        analyserRef.current = ctx.createAnalyser();
+        analyserRef.current.fftSize = 64;
+        const source = ctx.createMediaElementSource(audioRef.current);
+        source.connect(analyserRef.current);
+        analyserRef.current.connect(ctx.destination);
+      } catch (e) {
+        console.warn('Analyser setup notice:', e);
+      }
     }
     if (currentSong?.id === playSong.id) {
       if (newQueue) setQueueForSelection(playSong, newQueue);
@@ -356,27 +435,34 @@ const App: React.FC = () => {
     updateThemeFromImage(playSong.artwork);
     fetchLyrics(playSong);
     audioRef.current.src = playSong.url;
+    audioRef.current.loop = (repeatMode === 'one');
     playAudio();
 
     if (newQueue) {
       setQueueForSelection(playSong, newQueue);
     } else if (!queue.some(s => s.id === playSong.id)) {
       setQueue(prev => [playSong, ...prev]);
+      setOriginalQueue(prev => [playSong, ...prev]);
     }
   };
 
   const togglePlay = () => {
     if (!audioRef.current?.src) return;
-    if (audioRef.current.paused) playAudio();
-    else audioRef.current.pause();
+    if (audioRef.current.paused) {
+      playAudio();
+    } else {
+      audioRef.current.pause();
+    }
   };
 
+  // Requirement 2 & 7: Reliable Bluetooth and Media controls for Next and Previous
   const handleNext = useCallback(() => {
     if (queue.length === 0 || !currentSong) return;
     const idx = queue.findIndex(s => s.id === currentSong.id);
     if (idx !== -1 && idx < queue.length - 1) {
       handlePlaySong(queue[idx + 1]);
-    } else if (repeatMode === 'all') {
+    } else if (repeatMode === 'all' || repeatMode === 'one') {
+      // User or Bluetooth Next during repeat one advances forward or wraps around
       if (queue.length === 1 && audioRef.current) {
         audioRef.current.currentTime = 0;
         playAudio();
@@ -385,25 +471,40 @@ const App: React.FC = () => {
       }
     } else {
       setIsPlaying(false);
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
     }
   }, [queue, currentSong, repeatMode]);
 
   const handlePrev = useCallback(() => {
     if (queue.length === 0 || !currentSong) return;
+    // Standard Bluetooth / Headphone Back UX: if played > 3 seconds, restart current track
+    if (audioRef.current && audioRef.current.currentTime > 3) {
+      audioRef.current.currentTime = 0;
+      setProgress(0);
+      playAudio();
+      return;
+    }
     const idx = queue.findIndex(s => s.id === currentSong.id);
     if (idx > 0) {
       handlePlaySong(queue[idx - 1]);
-    } else if (repeatMode === 'all') {
+    } else if (repeatMode === 'all' || repeatMode === 'one') {
       handlePlaySong(queue[queue.length - 1]);
     }
   }, [queue, currentSong, repeatMode]);
 
-  mediaActionsRef.current = {
-    play: playAudio,
-    pause: () => audioRef.current?.pause(),
-    next: () => handleNext(),
-    prev: () => handlePrev(),
-  };
+  useEffect(() => {
+    mediaActionsRef.current = {
+      play: playAudio,
+      pause: () => {
+        if (audioRef.current) audioRef.current.pause();
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+      },
+      next: () => handleNext(),
+      prev: () => handlePrev(),
+    };
+  }, [handleNext, handlePrev]);
 
   const toggleShuffle = () => {
     const newState = !isShuffle;
@@ -521,15 +622,18 @@ const App: React.FC = () => {
     setPlaylists(prev => [...prev, newP]);
     return newP;
   };
-  // Keep notification controls bound to the latest queue without repeatedly replacing handlers.
+
+  // Requirement 2 & 7: Comprehensive Web Media Session & Bluetooth Hardware Media Key Integration
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
     const session = navigator.mediaSession;
     const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
       try { session.setActionHandler(action, handler); } catch { /* Action is unsupported by this browser. */ }
     };
+
     setHandler('play', () => mediaActionsRef.current.play());
     setHandler('pause', () => mediaActionsRef.current.pause());
+    setHandler('stop', () => mediaActionsRef.current.pause());
     setHandler('previoustrack', () => mediaActionsRef.current.prev());
     setHandler('nexttrack', () => mediaActionsRef.current.next());
     setHandler('seekto', details => {
@@ -548,42 +652,69 @@ const App: React.FC = () => {
       audioRef.current.currentTime = Math.min(audioRef.current.duration || Infinity, audioRef.current.currentTime + (details.seekOffset ?? 10));
       setProgress(audioRef.current.currentTime);
     });
-    setHandler('stop', () => audioRef.current?.pause());
+
+    // Hardware Bluetooth headset media keys fallback
+    const handleHardwareMediaKeys = (e: KeyboardEvent) => {
+      if (e.key === 'MediaPlayPause') {
+        togglePlay();
+      } else if (e.key === 'MediaTrackNext') {
+        mediaActionsRef.current.next();
+      } else if (e.key === 'MediaTrackPrevious') {
+        mediaActionsRef.current.prev();
+      } else if (e.key === 'MediaStop') {
+        mediaActionsRef.current.pause();
+      }
+    };
+    window.addEventListener('keydown', handleHardwareMediaKeys);
+
     return () => {
+      window.removeEventListener('keydown', handleHardwareMediaKeys);
       setHandler('play', null);
       setHandler('pause', null);
+      setHandler('stop', null);
       setHandler('previoustrack', null);
       setHandler('nexttrack', null);
       setHandler('seekto', null);
       setHandler('seekbackward', null);
       setHandler('seekforward', null);
-      setHandler('stop', null);
     };
   }, []);
 
+  // Update Media Session Notification Artwork & Metadata reliably for AVRCP Bluetooth & Lock Screen
   useEffect(() => {
     if (!currentSong || !('mediaSession' in navigator)) return;
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: currentSong.title,
-      artist: currentSong.artist,
-      album: currentSong.album || 'Unknown Album',
-      artwork: [
-        { src: currentSong.artwork, sizes: '96x96' },
-        { src: currentSong.artwork, sizes: '192x192' },
-        { src: currentSong.artwork, sizes: '512x512' },
-      ],
-    });
+    const artworkUrl = currentSong.artwork || '/icons/android-chrome-512x512.png';
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentSong.title,
+        artist: currentSong.artist,
+        album: currentSong.album || 'Zenisai Music',
+        artwork: [
+          { src: artworkUrl, sizes: '96x96', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '128x128', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '192x192', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '256x256', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '384x384', type: 'image/jpeg' },
+          { src: artworkUrl, sizes: '512x512', type: 'image/jpeg' },
+        ],
+      });
+    } catch {}
   }, [currentSong]);
 
+  // Update Playback State and Position State
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
-    const audio = audioRef.current;
-    if (audio && Number.isFinite(audio.duration) && audio.duration > 0) {
-      try {
-        navigator.mediaSession.setPositionState({ duration: audio.duration, playbackRate: audio.playbackRate, position: Math.min(progress, audio.duration) });
-      } catch { /* Position state is optional. */ }
-    }
+    try {
+      navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+      const audio = audioRef.current;
+      if (audio && Number.isFinite(audio.duration) && audio.duration > 0 && Number.isFinite(progress)) {
+        navigator.mediaSession.setPositionState({
+          duration: audio.duration,
+          playbackRate: audio.playbackRate || 1,
+          position: Math.min(Math.max(0, progress), audio.duration)
+        });
+      }
+    } catch { /* Position state is optional. */ }
   }, [isPlaying, progress]);
 
   const handlePageTouchStart = (event: React.TouchEvent<HTMLElement>) => {
@@ -622,6 +753,7 @@ const App: React.FC = () => {
               progress={progress}
               isFavorite={songId => playlists.find(p => p.id === 'favs')?.songs.some(song => song.id === songId) || false}
               onToggleFavorite={toggleFavorite}
+              onTogglePlay={togglePlay}
             />
           </div>
         )}
@@ -638,29 +770,63 @@ const App: React.FC = () => {
         )}
         {activeView === 'library' && (
           <div className="animate-in fade-in duration-200">
-            <LibraryView playlists={playlists} setPlaylists={setPlaylists} onPlay={handlePlaySong} onRemoveFromPlaylist={(sid, pid) => setPlaylists(prev => prev.map(pl => pl.id === pid ? {...pl, songs: pl.songs.filter(s => s.id !== sid)} : pl))} onAddClick={setSongToAddToPlaylist} onDownload={downloadSong} onCreatePlaylist={createPlaylist} />
+            <LibraryView 
+              playlists={playlists} 
+              setPlaylists={setPlaylists} 
+              onPlay={handlePlaySong} 
+              onRemoveFromPlaylist={(sid, pid) => setPlaylists(prev => prev.map(pl => pl.id === pid ? {...pl, songs: pl.songs.filter(s => s.id !== sid)} : pl))} 
+              onAddClick={setSongToAddToPlaylist} 
+              onDownload={downloadSong} 
+              onCreatePlaylist={createPlaylist} 
+            />
           </div>
         )}
       </main>
 
       <FloatingHub 
-        song={currentSong} isPlaying={isPlaying} onToggle={togglePlay} activeView={activeView} setActiveView={setActiveView}
-        progress={progress} duration={duration} lyrics={currentSyncedLyrics} plainLyrics={currentLyrics} onOpenPlayer={() => setIsPlayerOpen(true)}
-        analyser={analyserRef.current} dominantColor={dominantColor} onOpenChat={() => setIsChatOpen(true)}
+        song={currentSong} 
+        isPlaying={isPlaying} 
+        onToggle={togglePlay} 
+        activeView={activeView} 
+        setActiveView={setActiveView}
+        progress={progress} 
+        duration={duration} 
+        lyrics={currentSyncedLyrics} 
+        plainLyrics={currentLyrics} 
+        onOpenPlayer={() => setIsPlayerOpen(true)}
+        analyser={analyserRef.current} 
+        dominantColor={dominantColor} 
+        onOpenChat={() => setIsChatOpen(true)}
         isFavorite={playlists.find(p => p.id === 'favs')?.songs.some(s => s.id === currentSong?.id) || false}
         onToggleFavorite={() => currentSong && toggleFavorite(currentSong)}
-        isShuffle={isShuffle} onToggleShuffle={toggleShuffle}
-        repeatMode={repeatMode} onToggleRepeat={toggleRepeat}
-        onNext={handleNext} onPrev={handlePrev}
+        isShuffle={isShuffle} 
+        onToggleShuffle={toggleShuffle}
+        repeatMode={repeatMode} 
+        onToggleRepeat={toggleRepeat}
+        onNext={handleNext} 
+        onPrev={handlePrev}
       />
 
       {isPlayerOpen && currentSong && (
         <PlayerFull 
-          song={currentSong} isPlaying={isPlaying} onToggle={togglePlay} onNext={handleNext} onPrev={handlePrev} 
-          onClose={() => setIsPlayerOpen(false)} dominantColor={dominantColor} progress={progress} duration={duration}
+          song={currentSong} 
+          isPlaying={isPlaying} 
+          onToggle={togglePlay} 
+          onNext={handleNext} 
+          onPrev={handlePrev} 
+          onClose={() => setIsPlayerOpen(false)} 
+          dominantColor={dominantColor} 
+          progress={progress} 
+          duration={duration}
           onSeek={(val) => { if(audioRef.current) audioRef.current.currentTime = val; }}
-          analyser={analyserRef.current} sleepTimer={sleepTimer} setSleepTimer={setSleepTimer}
-          queue={queue} onPlayFromQueue={(s) => handlePlaySong(s)} lyrics={currentLyrics}
+          analyser={analyserRef.current} 
+          sleepTimer={sleepTimer} 
+          setSleepTimer={setSleepTimer}
+          queue={queue} 
+          onPlayFromQueue={(s) => handlePlaySong(s)} 
+          lyrics={currentLyrics}
+          syncedLyricsList={currentParsedLyrics}
+          plainLyricsList={currentPlainLyrics}
           onRemoveFromQueue={(id) => setQueue(q => q.filter(s => s.id !== id))} 
           onMoveQueueItem={(f, t) => setQueue(prev => { const n = [...prev]; const [i] = n.splice(f, 1); n.splice(t, 0, i); return n; })} 
           playlists={playlists} 
@@ -672,8 +838,10 @@ const App: React.FC = () => {
           onToggleFavorite={toggleFavorite}
           onDownload={downloadSong}
           onShare={shareSong => navigator.share?.({ title: shareSong.title, url: shareSong.url }).catch(() => {})}
-          isShuffle={isShuffle} onToggleShuffle={toggleShuffle}
-          repeatMode={repeatMode} onToggleRepeat={toggleRepeat}
+          isShuffle={isShuffle} 
+          onToggleShuffle={toggleShuffle}
+          repeatMode={repeatMode} 
+          onToggleRepeat={toggleRepeat}
           onShowPlaylistModal={setSongToAddToPlaylist}
         />
       )}

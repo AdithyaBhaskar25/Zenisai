@@ -1,16 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Song, Playlist } from '../types';
-
-// Helper to parse [mm:ss.xx] or [mm:ss] into seconds
-const parseTimestamp = (lrcTimestamp: string): number => {
-  const match = lrcTimestamp.match(/\[(\d+):(\d+(?:\.\d+)?)\]/);
-  if (!match) return 0;
-  const minutes = parseInt(match[1]);
-  const seconds = parseFloat(match[2]);
-  return minutes * 60 + seconds;
-};
-
-interface LyricLine { time: number; text: string; }
+import { ParsedLyricLine, lyricsService } from '../services/lyricsService';
 
 interface PlayerFullProps {
   song: Song; isPlaying: boolean; onToggle: () => void; onNext: () => void; onPrev: () => void; onClose: () => void;
@@ -20,6 +10,8 @@ interface PlayerFullProps {
   playlists: Playlist[]; onAddToPlaylist: (song: Song, playlistId: string) => void; isFavorite: (songId: string) => boolean;
   onToggleFavorite: (song: Song) => void; onDownload: (song: Song) => void; onShare: (song: Song) => void; isShuffle: boolean;
   onToggleShuffle: () => void; repeatMode: 'off' | 'one' | 'all'; onToggleRepeat: () => void; onShowPlaylistModal: (song: Song) => void;
+  syncedLyricsList?: ParsedLyricLine[];
+  plainLyricsList?: string[];
 }
 
 interface FeedActionProps {
@@ -39,14 +31,15 @@ const FeedAction: React.FC<FeedActionProps> = ({ label, onClick, active, childre
 const PlayerFull: React.FC<PlayerFullProps> = ({ 
   song, isPlaying, onToggle, onNext, onPrev, onClose, dominantColor, progress, duration, onSeek, analyser,
   sleepTimer, setSleepTimer, queue, onPlayFromQueue, lyrics: propLyrics, onRemoveFromQueue, onMoveQueueItem, 
-  isFavorite, onToggleFavorite, onDownload, onShare, isShuffle, onToggleShuffle, repeatMode, onToggleRepeat, onShowPlaylistModal
+  isFavorite, onToggleFavorite, onDownload, onShare, isShuffle, onToggleShuffle, repeatMode, onToggleRepeat, onShowPlaylistModal,
+  syncedLyricsList, plainLyricsList
 }) => {
   const [activeTab, setActiveTab] = useState<'player' | 'lyrics' | 'queue'>('player');
   const [showSleepTimerMenu, setShowSleepTimerMenu] = useState(false);
 
-  // --- ULTRA-ROBUST LYRIC ENGINE ---
-  const [syncedLyrics, setSyncedLyrics] = useState<LyricLine[]>([]);
-  const [plainLyrics, setPlainLyrics] = useState<string[]>([]);
+  // --- ULTRA-ROBUST SYNCHRONIZED LYRIC ENGINE ---
+  const [syncedLyrics, setSyncedLyrics] = useState<ParsedLyricLine[]>(() => syncedLyricsList || []);
+  const [plainLyrics, setPlainLyrics] = useState<string[]>(() => plainLyricsList || []);
   const [isLoadingLyrics, setIsLoadingLyrics] = useState(false);
 
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
@@ -54,85 +47,63 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   const visualizerCanvasRef = useRef<HTMLCanvasElement>(null);
   const feedScrollRef = useRef<HTMLDivElement>(null);
   const feedScrollTimerRef = useRef<number | null>(null);
+  const isProgrammaticScrollRef = useRef(false);
+  const isUserInteractingRef = useRef(false);
+  const hasMountedRef = useRef(false);
   const dragItemRef = useRef<number | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
+  // Keep lyrics 100% in sync with App.tsx and cache
   useEffect(() => {
+    if (syncedLyricsList && syncedLyricsList.length > 0) {
+      setSyncedLyrics(syncedLyricsList);
+      if (plainLyricsList && plainLyricsList.length > 0) setPlainLyrics(plainLyricsList);
+      setIsLoadingLyrics(false);
+      return;
+    }
+
+    let isCancelled = false;
     const fetchLyrics = async () => {
-      if (!song.title) return;
       setIsLoadingLyrics(true);
-      setSyncedLyrics([]);
-      setPlainLyrics([]);
-
-      const cleanTitleStr = song.title.replace(/\s*[\(\[].*?[\)\]]\s*/g, '').trim();
-      const artist = encodeURIComponent(song.artist);
-      const title = encodeURIComponent(song.title);
-      const simpleTitle = encodeURIComponent(cleanTitleStr);
-      const dur = Math.round(duration);
-
-      const processData = (data: any): boolean => {
-        if (data && (data.syncedLyrics || data.plainLyrics || data.instrumental)) {
-          if (data.syncedLyrics) {
-            const lines = data.syncedLyrics.split('\n')
-              .map((line: string) => ({
-                time: parseTimestamp(line),
-                text: line.replace(/\[.*\]/, '').trim()
-              }))
-              .filter((l: any) => l.text.length > 0 || l.text === "");
-            setSyncedLyrics(lines);
-          } else if (data.plainLyrics) {
-            setPlainLyrics(data.plainLyrics.split('\n'));
-          } else if (data.instrumental) {
-            setPlainLyrics(["◆ Instrumental ◆"]);
-          }
-          return true;
-        }
-        return false;
-      };
-
-      try {
-        const getRes = await fetch(`https://lrclib.net/api/get?artist_name=${artist}&track_name=${title}&duration=${dur}`);
-        if (getRes.ok && processData(await getRes.json())) return;
-
-        const searchRes = await fetch(`https://lrclib.net/api/search?track_name=${title}&artist_name=${artist}`);
-        if (searchRes.ok) {
-          const results = await searchRes.json();
-          if (results?.length > 0) {
-            const bestMatch = results.sort((a: any, b: any) => {
-              if (a.syncedLyrics && !b.syncedLyrics) return -1;
-              return Math.abs(a.duration - dur) - Math.abs(b.duration - dur);
-            })[0];
-            if (processData(bestMatch)) return;
-          }
-        }
-
-        const broadRes = await fetch(`https://lrclib.net/api/search?q=${simpleTitle}`);
-        if (broadRes.ok) {
-          const broadResults = await broadRes.json();
-          if (broadResults?.length > 0) {
-            const bestBroadMatch = broadResults.sort((a: any, b: any) => {
-              if (a.syncedLyrics && !b.syncedLyrics) return -1;
-              return Math.abs(a.duration - dur) - Math.abs(b.duration - dur);
-            })[0];
-            if (processData(bestBroadMatch)) return;
-          }
-        }
-        if (propLyrics) setPlainLyrics(propLyrics.split('\n'));
-      } catch (e) {
-        if (propLyrics) setPlainLyrics(propLyrics.split('\n'));
-      } finally { setIsLoadingLyrics(false); }
+      const res = await lyricsService.fetchLyrics(song);
+      if (isCancelled) return;
+      setSyncedLyrics(res.syncedLyrics);
+      setPlainLyrics(res.plainLyrics.length > 0 ? res.plainLyrics : (propLyrics ? propLyrics.split('\n') : []));
+      setIsLoadingLyrics(false);
     };
-    fetchLyrics();
-  }, [song.id, duration]);
 
+    fetchLyrics();
+    return () => { isCancelled = true; };
+  }, [song.id, song.title, song.artist, syncedLyricsList, plainLyricsList, propLyrics]);
+
+  // Robust feed scroll sync: avoids jumping or switching to wrong song when opened from mini player!
   useEffect(() => {
     if (activeTab !== 'player' || !feedScrollRef.current) return;
+    const feed = feedScrollRef.current;
     const activeIndex = queue.findIndex(item => item.id === song.id);
     if (activeIndex < 0) return;
-    const feed = feedScrollRef.current;
+
+    isProgrammaticScrollRef.current = true;
     const targetTop = activeIndex * feed.clientHeight;
-    if (Math.abs(feed.scrollTop - targetTop) > 4) feed.scrollTo({ top: targetTop, behavior: 'smooth' });
-  }, [activeTab, queue, song.id]);
+
+    if (!hasMountedRef.current) {
+      // Immediate instant jump on initial mount to prevent smooth scroll collision
+      feed.scrollTop = targetTop;
+      hasMountedRef.current = true;
+    } else {
+      if (Math.abs(feed.scrollTop - targetTop) > 6) {
+        feed.scrollTo({ top: targetTop, behavior: 'smooth' });
+      }
+    }
+
+    const timer = window.setTimeout(() => {
+      isProgrammaticScrollRef.current = false;
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [activeTab, song.id, queue]);
 
   useEffect(() => () => {
     if (feedScrollTimerRef.current !== null) window.clearTimeout(feedScrollTimerRef.current);
@@ -217,15 +188,38 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
 
         <main className="flex-1 flex flex-col min-h-0">
           {activeTab === 'player' && (
-            <div ref={feedScrollRef} onScroll={event => {
-              if (feedScrollTimerRef.current !== null) window.clearTimeout(feedScrollTimerRef.current);
-              const feed = event.currentTarget;
-              feedScrollTimerRef.current = window.setTimeout(() => {
-                const feedIndex = Math.round(feed.scrollTop / Math.max(feed.clientHeight, 1));
-                const selectedSong = queue[feedIndex];
-                if (selectedSong && selectedSong.id !== song.id) onPlayFromQueue(selectedSong);
-              }, 110);
-            }} className="h-full min-h-0 snap-y snap-mandatory overflow-y-auto overscroll-contain rounded-[26px] border border-white/10 bg-[var(--color-surface)] no-scrollbar">
+            <div 
+              ref={feedScrollRef} 
+              onTouchStart={() => { isUserInteractingRef.current = true; }}
+              onTouchEnd={() => {
+                // allow momentum scroll to finish
+                setTimeout(() => { isUserInteractingRef.current = false; }, 400);
+              }}
+              onMouseDown={() => { isUserInteractingRef.current = true; }}
+              onMouseUp={() => {
+                setTimeout(() => { isUserInteractingRef.current = false; }, 400);
+              }}
+              onScroll={event => {
+                if (isProgrammaticScrollRef.current) return;
+                if (!isUserInteractingRef.current) return;
+                if (feedScrollTimerRef.current !== null) window.clearTimeout(feedScrollTimerRef.current);
+                const feed = event.currentTarget;
+                feedScrollTimerRef.current = window.setTimeout(() => {
+                  if (isProgrammaticScrollRef.current) return;
+                  const itemHeight = Math.max(feed.clientHeight, 1);
+                  const feedIndex = Math.round(feed.scrollTop / itemHeight);
+                  const distFromSnap = Math.abs(feed.scrollTop - feedIndex * itemHeight);
+                  // Ensure container has snapped close to the target reel
+                  if (distFromSnap < itemHeight * 0.3) {
+                    const selectedSong = queue[feedIndex];
+                    if (selectedSong && selectedSong.id !== song.id) {
+                      onPlayFromQueue(selectedSong);
+                    }
+                  }
+                }, 150);
+              }} 
+              className="h-full min-h-0 snap-y snap-mandatory overflow-y-auto overscroll-contain rounded-[26px] border border-white/10 bg-[var(--color-surface)] no-scrollbar"
+            >
               {(queue.length > 0 ? queue : [song]).map((feedSong, index) => {
                 const isCurrent = feedSong.id === song.id;
                 return (

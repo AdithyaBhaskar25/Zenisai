@@ -18,7 +18,19 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET' || event.request.destination === 'audio' || event.request.headers.has('range')) return;
+  const url = event.request.url;
+  // Never intercept or cache audio streams, media chunks, or streaming CDNs
+  if (
+    event.request.method !== 'GET' ||
+    event.request.destination === 'audio' ||
+    event.request.destination === 'video' ||
+    event.request.headers.has('range') ||
+    url.includes('saavncdn.com') ||
+    url.includes('saavn') ||
+    url.includes('lrclib.net')
+  ) {
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then((response) => {
       return response || fetch(event.request);
