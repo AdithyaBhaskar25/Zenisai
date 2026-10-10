@@ -64,7 +64,7 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
     >
       <div 
         style={{ background: 'color-mix(in srgb, var(--color-surface) 92%, var(--color-primary) 8%)' }} 
-        className={`relative border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.65)] backdrop-blur-2xl overflow-hidden rounded-[22px] ${snappedTransition} ${isExpanded ? 'p-3 sm:p-4 flex flex-col gap-3' : 'px-3 py-2.5 flex items-center hover:border-white/20'}`}
+        className={`relative border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.65)] backdrop-blur-2xl overflow-hidden rounded-[22px] ${snappedTransition} ${isExpanded ? 'p-3 sm:p-4 compact-landscape:p-2 flex flex-col gap-2 sm:gap-3' : 'px-3 py-2.5 flex items-center hover:border-white/20'}`}
         onClick={() => !isExpanded && setIsExpanded(true)}
       >
         {!isExpanded ? (
@@ -174,7 +174,7 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
             </div>
 
             {/* Lyrics banner: completely wraps the whole lyrics line */}
-            <button onClick={onOpenPlayer} className="flex w-full min-w-0 items-start gap-2.5 rounded-[14px] border border-accent-tint bg-accent-tint/40 px-3.5 py-2.5 text-left transition-colors hover:bg-accent-tint/60">
+            <button onClick={onOpenPlayer} className="flex w-full min-w-0 items-start gap-2.5 rounded-[14px] border border-accent-tint bg-accent-tint/40 px-3.5 py-2.5 compact-landscape:hidden text-left transition-colors hover:bg-accent-tint/60">
               <svg className="h-4 w-4 mt-0.5 shrink-0 text-accent" viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V5l12-2v13M9 9l12-2M5 19c0 1.1-1.1 2-2.5 2S0 20.1 0 19s1.1-2 2.5-2S5 17.9 5 19zm16-3c0 1.1-1.1 2-2.5 2S16 16.9 16 16s1.1-2 2.5-2S21 14.9 21 16z" /></svg>
               <span className="whitespace-normal break-words text-wrap flex-1 text-xs font-medium text-white/90 leading-relaxed">
                 {activeLyric || plainLyrics.split('\n').find(line => line.trim()) || 'Lyrics appear with playback'}

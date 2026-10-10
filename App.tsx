@@ -741,7 +741,7 @@ const App: React.FC = () => {
     <div className="flex flex-col h-[100dvh] bg-[var(--color-bg)] relative overflow-hidden transition-colors duration-1000">
       <div className="fixed inset-0 pointer-events-none glow-overlay z-0" />
       
-      <main onTouchStart={handlePageTouchStart} onTouchEnd={handlePageTouchEnd} className="flex-1 overflow-y-auto no-scrollbar pb-[220px] relative z-10">
+      <main onTouchStart={handlePageTouchStart} onTouchEnd={handlePageTouchEnd} className="flex-1 overflow-y-auto no-scrollbar pb-[220px] compact-landscape:pb-[130px] w-full max-w-5xl mx-auto relative z-10">
         {activeView === 'home' && (
           <div className="animate-in fade-in duration-200">
             <HomeView

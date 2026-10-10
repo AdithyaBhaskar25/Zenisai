@@ -88,11 +88,11 @@ const HomeView: React.FC<HomeViewProps> = ({
   );
 
   return (
-    <div className="mx-auto flex min-h-[calc(100dvh-220px)] max-w-4xl flex-col gap-4 px-0 pb-4 pt-3 sm:px-6 sm:pt-4">
+    <div className="mx-auto flex min-h-[calc(100dvh-220px)] compact-landscape:min-h-[calc(100dvh-120px)] max-w-4xl flex-col gap-3 sm:gap-4 px-0 pb-4 pt-2 sm:pt-4">
       <header className="flex items-center justify-between px-4 sm:px-2">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">Sound for your day</p>
-          <h1 className="mt-1 text-3xl font-bold">Zenisai</h1>
+          <h1 className="mt-0.5 sm:mt-1 text-2xl sm:text-3xl font-bold">Zenisai</h1>
         </div>
         {currentSong && (
           <button 
@@ -116,7 +116,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             role="tab" 
             aria-selected={feedMode === mode} 
             onClick={() => setFeedMode(mode)} 
-            className={`flex-1 rounded-[10px] py-2.5 text-sm font-semibold transition-colors ${feedMode === mode ? 'bg-accent text-[#06101e] shadow-lg shadow-accent/20' : 'text-white/55'}`}
+            className={`flex-1 rounded-[10px] py-2 sm:py-2.5 text-xs sm:text-sm font-semibold transition-colors ${feedMode === mode ? 'bg-accent text-[#06101e] shadow-lg shadow-accent/20' : 'text-white/55'}`}
           >
             {mode === 'latest' ? 'Latest' : 'For you'}
           </button>
@@ -126,7 +126,7 @@ const HomeView: React.FC<HomeViewProps> = ({
       {/* Reels Feed Container with current playing song always present */}
       <div 
         ref={feedScrollRef}
-        className="h-[min(74dvh,720px)] min-h-[420px] snap-y snap-mandatory overflow-y-auto overscroll-contain rounded-none border-y border-white/10 bg-[var(--color-surface)] no-scrollbar sm:rounded-[24px] sm:border"
+        className="h-[min(74dvh,720px)] compact-landscape:h-[calc(100dvh-130px)] compact-landscape:min-h-[250px] min-h-[360px] snap-y snap-mandatory overflow-y-auto overscroll-contain rounded-none border-y border-white/10 bg-[var(--color-surface)] no-scrollbar sm:rounded-[24px] sm:border shadow-2xl"
       >
         {feedSongs.map((song, index) => {
           const isCurrent = currentSong?.id === song.id;

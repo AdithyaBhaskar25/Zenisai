@@ -16,6 +16,22 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            screens: {
+              'xs': '400px',
+              'landscape': { 'raw': '(orientation: landscape)' },
+              'portrait': { 'raw': '(orientation: portrait)' },
+              'compact-landscape': { 'raw': '(orientation: landscape) and (max-height: 520px)' },
+              'tablet': '768px',
+              'desktop': '1024px',
+            }
+          }
+        }
+      };
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -52,6 +68,10 @@
             --color-surface: #0b1220;
             --color-glow: rgba(59, 130, 246, 0.2);
             --color-tint: rgba(59, 130, 246, 0.12);
+            --safe-top: env(safe-area-inset-top, 0px);
+            --safe-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-left: env(safe-area-inset-left, 0px);
+            --safe-right: env(safe-area-inset-right, 0px);
             transition: --color-primary 1.2s cubic-bezier(0.23, 1, 0.32, 1), 
                         --color-bg 1.2s cubic-bezier(0.23, 1, 0.32, 1), 
                         --color-glow 1.2s cubic-bezier(0.23, 1, 0.32, 1),
@@ -67,6 +87,10 @@
             transition: background-color 1.5s cubic-bezier(0.23, 1, 0.32, 1);
             user-select: none;
             overflow: hidden;
+            width: 100vw;
+            height: 100dvh;
+            padding-left: var(--safe-left);
+            padding-right: var(--safe-right);
         }
 
         h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; }
@@ -113,6 +137,31 @@
         .fill-accent { fill: var(--color-primary) !important; }
         .bg-accent-tint { background-color: var(--color-tint) !important; }
         .border-accent-tint { border-color: var(--color-tint) !important; }
+
+        /* Media Query Bootstrapping: Phone Landscape (compact height) */
+        @media (orientation: landscape) and (max-height: 520px) {
+            .compact-landscape-compact-header {
+                height: 2.25rem !important;
+                margin-bottom: 0.25rem !important;
+            }
+            .compact-landscape-action-rail {
+                flex-direction: row !important;
+                right: 1rem !important;
+                top: auto !important;
+                bottom: 1rem !important;
+                transform: none !important;
+                max-width: calc(100% - 2rem) !important;
+            }
+        }
+
+        /* Media Query Bootstrapping: Desktop & Tablets */
+        @media (min-width: 1024px) {
+            .app-container-desktop {
+                max-width: 1200px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+        }
     </style>
 <script type="importmap">
 {
