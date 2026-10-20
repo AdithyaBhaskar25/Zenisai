@@ -33,6 +33,9 @@ const LibraryView: React.FC<LibraryViewProps> = ({
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [sortBy, setSortBy] = useState<'default' | 'title' | 'artist'>('default');
 
+  // Dynamic color for Device Music tab matching other tabs (defaults to blue #3b82f6, adopts dominantColor when song is active)
+  const deviceTabColor = currentSong && dominantColor ? dominantColor : '#3b82f6';
+
   const favsPlaylist = playlists.find(pl => pl.id === 'favs');
   const favSongs = favsPlaylist?.songs || [];
 
@@ -210,9 +213,19 @@ const LibraryView: React.FC<LibraryViewProps> = ({
           role="tab" 
           aria-selected={activeTab === 'device'} 
           onClick={() => setActiveTab('device')} 
-          className={`flex-1 border-b-2 py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${activeTab === 'device' ? 'border-emerald-400 text-white' : 'border-transparent text-white/40 hover:text-white/70'}`}
+          style={activeTab === 'device' ? { borderColor: deviceTabColor } : {}}
+          className={`flex-1 border-b-2 py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors duration-500 ${
+            activeTab === 'device' ? 'text-white' : 'border-transparent text-white/40 hover:text-white/70'
+          }`}
         >
-          <svg className={`w-4 h-4 ${activeTab === 'device' ? 'text-emerald-400' : 'text-current'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <svg 
+            className="w-4 h-4 transition-colors duration-500" 
+            style={activeTab === 'device' ? { color: deviceTabColor } : {}} 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
           </svg>
           Device Music
