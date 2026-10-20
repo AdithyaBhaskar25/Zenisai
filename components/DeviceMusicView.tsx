@@ -27,7 +27,6 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
   dominantColor
 }) => {
   // Use dominant color if a song is loaded/playing, otherwise fallback to default blue (#3b82f6)
-  // Checking currentSong instead of isPlaying keeps the theme steady even when paused!
   const activeColor = currentSong && dominantColor ? dominantColor : '#3b82f6';
 
   const [deviceSongs, setDeviceSongs] = useState<Song[]>([]);
@@ -290,15 +289,29 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
         }}
       >
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+          {/* Dynamic Storage Icon / Recently Loaded Song Cover Image */}
           <div 
-            className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shadow-2xl border shrink-0 flex items-center justify-center transition-all duration-500"
-            style={{ borderColor: `${activeColor}4D`, backgroundColor: `${activeColor}1A` }}
+            className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shadow-2xl border shrink-0 flex items-center justify-center transition-all duration-500 bg-blue-950/40"
+            style={{ borderColor: `${activeColor}4D` }}
           >
-            <svg className="w-10 h-10 transition-colors duration-500" style={{ color: activeColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-            </svg>
+            {currentSong?.artwork ? (
+              <img 
+                src={currentSong.artwork} 
+                alt={currentSong.title || 'Current Song'} 
+                className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = 'https://picsum.photos/seed/audio/400/400';
+                }}
+              />
+            ) : (
+              <svg className="w-10 h-10 transition-colors duration-500" style={{ color: activeColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+              </svg>
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent flex items-end p-1.5">
-              <span className="text-[9px] font-black uppercase tracking-wider transition-colors duration-500" style={{ color: activeColor }}>Storage</span>
+              <span className="text-[9px] font-black uppercase tracking-wider transition-colors duration-500" style={{ color: activeColor }}>
+                {currentSong ? 'Now Playing' : 'Storage'}
+              </span>
             </div>
           </div>
 
