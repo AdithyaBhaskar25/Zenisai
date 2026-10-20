@@ -168,120 +168,182 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({ onClose, dominantColor, curre
     }
   };
 
+  const suggestionChips = [
+    'Play top hits',
+    'Recommend relaxing music',
+    'Add current track to favorites'
+  ];
+
   return (
-    <div className="fixed inset-0 z-[500] flex flex-col backdrop-blur-2xl transition-all duration-300" style={{ background: 'color-mix(in srgb, var(--color-bg) 92%, var(--color-primary) 8%)' }}>
+    <div className="fixed inset-0 z-[500] flex flex-col backdrop-blur-3xl transition-all duration-500" style={{ background: 'color-mix(in srgb, var(--color-bg) 92%, var(--color-primary) 8%)' }}>
+      
+      {/* Ambient Glow background accents */}
+      <div 
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[350px] h-[220px] rounded-full blur-[110px] pointer-events-none opacity-30 transition-all duration-700" 
+        style={{ backgroundColor: dominantColor }}
+      />
+
       {/* Header */}
-      <header className="flex justify-between items-center px-5 py-[calc(env(safe-area-inset-top)+1rem)] border-b border-white/[0.07]">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">Zenisai AI</p>
-          <h2 className="text-2xl font-bold text-white mt-1">Assistant</h2>
-          <div className="flex items-center gap-2 mt-1">
-            <div className={`w-1.5 h-1.5 rounded-full ${isLiveActive ? 'bg-accent animate-pulse shadow-accent' : 'bg-white/20'}`} />
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">
-              {isLiveActive ? 'Live Voice' : 'Zenisai AI'}
-            </span>
+      <header className="relative z-10 flex justify-between items-center px-5 py-[calc(env(safe-area-inset-top)+1rem)] border-b border-white/[0.08] bg-white/[0.02] backdrop-blur-md">
+        <div className="flex items-center gap-3.5">
+          <div 
+            className="w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg border border-white/10"
+            style={{ background: `linear-gradient(135deg, ${dominantColor}, #070e1f)` }}
+          >
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
           </div>
-          {currentSong && <div className="mt-3 flex max-w-[260px] items-center gap-2 rounded-[12px] border border-accent-tint bg-accent-tint p-2">
-            <img src={currentSong.artwork} alt="" className="h-8 w-8 rounded-[8px] object-cover" />
-            <div className="min-w-0 flex-1"><p className="truncate text-[10px] font-semibold text-white">{currentSong.title}</p><p className="truncate text-[9px] text-white/55">{currentSong.artist}</p></div>
-            <div className="flex h-5 items-end gap-0.5" aria-hidden="true">{[0, 1, 2, 3].map(bar => <span key={bar} className="w-1 rounded-full bg-accent" style={{ height: `${6 + ((bar * 7 + 3) % 13)}px` }} />)}</div>
-          </div>}
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-extrabold text-white tracking-tight">Zenisai Assistant</h2>
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-accent/20 text-accent border border-accent/30">
+                AI Active
+              </span>
+            </div>
+            <p className="text-[11px] text-white/50 mt-0.5">Your intelligent music companion</p>
+          </div>
         </div>
+
         <button 
           onClick={onClose} 
-          className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-white/30 hover:bg-white/10 hover:text-white transition-all active:scale-90"
+          className="w-11 h-11 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white/50 hover:bg-white/10 hover:text-white transition-all active:scale-90 shadow-sm"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
         </button>
       </header>
 
-      {/* Chat Area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-5 space-y-4 no-scrollbar">
-        {!isLiveActive ? (
-          messages.map((m, i) => (
-            <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`}>
-              <div className={`max-w-[85%] p-4 px-6 shadow-xl ${
-                m.role === 'user' 
-                  ? 'bg-accent text-[#06101e] rounded-[18px] rounded-tr-sm font-semibold'
-                  : 'bg-white/[0.06] text-white/90 rounded-[18px] rounded-tl-sm border border-white/[0.07]'
-              }`}>
-                <p className="text-sm leading-relaxed">{m.text}</p>
-              </div>
+      {/* Now Playing Mini Context Bar if track loaded */}
+      {currentSong && (
+        <div className="relative z-10 px-5 py-2.5 bg-white/[0.03] border-b border-white/[0.06] flex items-center justify-between gap-3 backdrop-blur-md">
+          <div className="flex items-center gap-3 min-w-0">
+            <img src={currentSong.artwork} alt="" className="w-9 h-9 rounded-xl object-cover shadow-md border border-white/10" />
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-white truncate">{currentSong.title}</p>
+              <p className="text-[10px] text-white/50 truncate">{currentSong.artist}</p>
             </div>
-          ))
+          </div>
+          <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold text-white/70">
+            <span className="w-2 h-2 rounded-full animate-ping" style={{ backgroundColor: dominantColor }} />
+            Ready for commands
+          </div>
+        </div>
+      )}
+
+      {/* Chat Area */}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6 space-y-4 no-scrollbar relative z-10">
+        {!isLiveActive ? (
+          <>
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-400`}>
+                <div className={`max-w-[85%] p-4 px-5 shadow-xl transition-all ${
+                  m.role === 'user' 
+                    ? 'text-[#06101e] rounded-[22px] rounded-tr-sm font-semibold shadow-accent/20'
+                    : 'bg-white/[0.06] text-white/90 rounded-[22px] rounded-tl-sm border border-white/[0.08] backdrop-blur-md'
+                }`}
+                style={m.role === 'user' ? { backgroundColor: dominantColor } : {}}
+                >
+                  <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-line">{m.text}</p>
+                </div>
+              </div>
+            ))}
+          </>
         ) : (
           /* Voice Mode Visualization */
-          <div className="h-full flex flex-col items-center justify-center animate-in zoom-in-95 duration-500 pb-20">
+          <div className="h-full flex flex-col items-center justify-center animate-in zoom-in-95 duration-500 pb-10">
             <div className="relative group">
               {/* Voice Pulse Effect */}
-              <div className="absolute inset-0 bg-accent/20 blur-[80px] rounded-full animate-pulse scale-150" />
+              <div className="absolute inset-0 blur-[90px] rounded-full animate-pulse scale-150 opacity-40" style={{ backgroundColor: dominantColor }} />
               <div 
-                className="relative w-32 h-32 rounded-full border border-accent-tint flex items-center justify-center overflow-hidden"
-                style={{ background: `radial-gradient(circle, ${dominantColor}33 0%, transparent 80%)` }}
+                className="relative w-36 h-36 rounded-full border border-white/20 flex items-center justify-center overflow-hidden shadow-2xl"
+                style={{ background: `radial-gradient(circle, ${dominantColor}55 0%, #070e1f 80%)` }}
               >
-                <div className="flex gap-1 items-end h-8">
+                <div className="flex gap-1.5 items-end h-10">
                   {[...Array(5)].map((_, i) => (
                     <div 
                       key={i} 
-                      className="w-1.5 bg-accent rounded-full animate-bounce"
-                      style={{ animationDelay: `${i * 0.1}s`, animationDuration: '0.8s' }} 
+                      className="w-2 bg-white rounded-full animate-bounce shadow-lg"
+                      style={{ animationDelay: `${i * 0.12}s`, animationDuration: '0.7s' }} 
                     />
                   ))}
                 </div>
               </div>
             </div>
-            <p className="mt-8 text-xs font-black uppercase tracking-[0.4em] text-white/40 animate-pulse">Assistant Listening</p>
+            <p className="mt-8 text-xs font-black uppercase tracking-[0.3em] text-white/60 animate-pulse">Listening to your voice...</p>
             {liveTranscript && (
-              <p className="mt-4 px-6 max-w-md text-center text-sm font-medium text-white/90 italic animate-in fade-in">"{liveTranscript}"</p>
+              <div className="mt-5 px-6 py-3 max-w-md rounded-2xl bg-white/5 border border-white/10 backdrop-blur-md">
+                <p className="text-center text-sm font-semibold text-white italic">"{liveTranscript}"</p>
+              </div>
             )}
           </div>
         )}
 
         {loading && (
-          <div className="flex justify-start px-2">
-            <div className="flex gap-1.5 animate-pulse">
-              <div className="w-1.5 h-1.5 bg-white/20 rounded-full" />
-              <div className="w-1.5 h-1.5 bg-white/20 rounded-full" />
-              <div className="w-1.5 h-1.5 bg-white/20 rounded-full" />
+          <div className="flex justify-start px-2 animate-in fade-in">
+            <div className="flex gap-2 p-3.5 rounded-2xl bg-white/[0.06] border border-white/[0.08] items-center">
+              <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: dominantColor, animationDelay: '0s' }} />
+              <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: dominantColor, animationDelay: '0.2s' }} />
+              <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: dominantColor, animationDelay: '0.4s' }} />
             </div>
           </div>
         )}
       </div>
 
+      {/* Suggestion Chips */}
+      {!isLiveActive && messages.length <= 2 && (
+        <div className="relative z-10 px-5 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
+          {suggestionChips.map((chip, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleSend(chip)}
+              className="px-3.5 py-1.5 rounded-full text-[11px] font-semibold bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-white/80 shrink-0 transition-all active:scale-95 shadow-sm"
+            >
+              ✨ {chip}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Footer / Input */}
-      <footer className="p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] border-t border-white/[0.07]">
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
+      <footer className="relative z-10 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] border-t border-white/[0.08] bg-white/[0.02] backdrop-blur-md">
+        <div className="max-w-3xl mx-auto flex items-center gap-3">
           <div className="relative flex-1 group">
             <input 
               type="text" 
               value={input} 
               onChange={e => setInput(e.target.value)} 
               onKeyDown={e => e.key === 'Enter' && handleSend()} 
-              placeholder={isLiveActive ? "Listening to your voice..." : "Request a song..."} 
+              placeholder={isLiveActive ? "Listening..." : "Ask assistant or search song..."} 
               disabled={isLiveActive}
-              className="w-full bg-white/[0.04] rounded-[16px] py-4 pl-5 pr-14 outline-none border border-white/[0.08] focus:border-accent/40 focus:bg-white/[0.07] transition-all text-sm placeholder:text-white/30 disabled:opacity-20"
+              className="w-full bg-white/[0.04] rounded-[18px] py-3.5 pl-5 pr-14 outline-none border border-white/10 focus:border-white/30 focus:bg-white/[0.08] transition-all text-xs sm:text-sm text-white placeholder:text-white/40 disabled:opacity-20 shadow-inner"
             />
             <button 
               onClick={() => handleSend()} 
               disabled={isLiveActive || !input.trim()}
-              className="absolute right-2 top-2 bottom-2 aspect-square bg-accent text-[#06101e] rounded-[12px] flex items-center justify-center hover:brightness-110 active:scale-95 transition-transform disabled:opacity-0"
+              className="absolute right-2 top-2 bottom-2 aspect-square text-[#06101e] rounded-[12px] flex items-center justify-center hover:brightness-110 active:scale-95 transition-transform disabled:opacity-0 shadow-md font-bold"
+              style={{ backgroundColor: dominantColor }}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M5 12h14m-7-7l7 7-7 7"></path></svg>
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 12h14m-7-7l7 7-7 7"></path>
+              </svg>
             </button>
           </div>
 
           <button 
             onClick={startVoiceSession}
-            className={`w-12 h-12 rounded-[16px] flex items-center justify-center shadow-lg transition-all duration-300 active:scale-90 border ${
+            className={`w-12 h-12 rounded-[18px] flex items-center justify-center shadow-lg transition-all duration-300 active:scale-90 border ${
               isLiveActive 
-                ? 'bg-red-500 text-white border-red-400 rotate-90 shadow-red-500/30' 
-                : 'bg-white/10 text-white border-white/10 hover:bg-white/20'
+                ? 'bg-rose-500 text-white border-rose-400 rotate-90 shadow-rose-500/30' 
+                : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
             }`}
+            title={isLiveActive ? 'Stop voice session' : 'Start voice session'}
           >
             {isLiveActive ? (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
             ) : (
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-20a3 3 0 013 3v10a3 3 0 01-6 0V7a3 3 0 013-3z"></path></svg>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-20a3 3 0 013 3v10a3 3 0 01-6 0V7a3 3 0 013-3z"></path></svg>
             )}
           </button>
         </div>
