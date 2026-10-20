@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Song, Playlist } from '../types';
+import { Song } from '../types';
 import { deviceMusicService } from '../services/deviceMusicService';
 
 interface DeviceMusicViewProps {
@@ -31,7 +31,7 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
   const [deviceSongs, setDeviceSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeSubTab, setActiveSubTab] = useState<'tracks' | 'artists' | 'albums' | 'playlists'>('tracks');
+  const [activeSubTab, setActiveSubTab] = useState<'tracks' | 'artists' | 'albums'>('tracks');
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [selectedAlbum, setSelectedAlbum] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,13 +41,6 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
     return localStorage.getItem('zenisai_device_storage_permission') === 'granted';
   });
   const [showPermissionModal, setShowPermissionModal] = useState(false);
-  const [devicePlaylists, setDevicePlaylists] = useState<Playlist[]>(() => {
-    try {
-      const saved = localStorage.getItem('zenisai_device_playlists');
-      return saved ? JSON.parse(saved) : [];
-    } catch { return []; }
-  });
-  const [newPlaylistName, setNewPlaylistName] = useState('');
 
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -87,10 +80,6 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
     initDeviceLibrary();
     return () => { isCancelled = true; };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('zenisai_device_playlists', JSON.stringify(devicePlaylists));
-  }, [devicePlaylists]);
 
   const handleGrantPermission = () => {
     setPermissionGranted(true);
@@ -346,10 +335,10 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
               <button
                 onClick={() => folderInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-full border bg-blue-950/30 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-900/40 active:scale-95 transition-all duration-500"
-                style={{ borderColor: `${activeColor}33` }}
+                className="flex items-center gap-2 rounded-full border bg-blue-950/50 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-900/60 active:scale-95 transition-all duration-500 shadow-md"
+                style={{ borderColor: 'rgba(59, 130, 246, 0.4)' }}
               >
-                <svg className="w-4 h-4 transition-colors duration-500" style={{ color: activeColor }} fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                 </svg>
                 Scan Folder
@@ -357,10 +346,10 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-full border bg-blue-950/30 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-900/40 active:scale-95 transition-all duration-500"
-                style={{ borderColor: `${activeColor}33` }}
+                className="flex items-center gap-2 rounded-full border bg-blue-950/50 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-900/60 active:scale-95 transition-all duration-500 shadow-md"
+                style={{ borderColor: 'rgba(59, 130, 246, 0.4)' }}
               >
-                <svg className="w-4 h-4 transition-colors duration-500" style={{ color: activeColor }} fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
                 Add Files
@@ -508,18 +497,6 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
           }`}
         >
           Albums ({albumsMap.length})
-        </button>
-
-        <button
-          onClick={() => { setActiveSubTab('playlists'); setSelectedArtist(null); setSelectedAlbum(null); }}
-          style={activeSubTab === 'playlists' ? { backgroundColor: activeColor } : {}}
-          className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-500 shrink-0 ${
-            activeSubTab === 'playlists'
-              ? 'text-white shadow-md'
-              : 'bg-white/5 text-white/60 hover:text-white'
-          }`}
-        >
-          Playlists ({devicePlaylists.length})
         </button>
       </div>
 
@@ -772,85 +749,6 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
           {albumsMap.length === 0 && (
             <div className="col-span-full py-12 text-center text-xs text-white/40">No albums detected yet. Scan a folder to import music.</div>
           )}
-        </div>
-      )}
-
-      {/* 4. DEVICE PLAYLISTS VIEW */}
-      {activeSubTab === 'playlists' && !selectedArtist && !selectedAlbum && (
-        <div className="space-y-4">
-          <form
-            onSubmit={e => {
-              e.preventDefault();
-              const name = newPlaylistName.trim();
-              if (name) {
-                const newPl: Playlist = {
-                  id: `dev_pl_${Date.now()}`,
-                  name,
-                  songs: [],
-                  artwork: 'https://picsum.photos/seed/playlist/400/400'
-                };
-                setDevicePlaylists(prev => [...prev, newPl]);
-                setNewPlaylistName('');
-              }
-            }}
-            className="flex gap-2"
-          >
-            <input
-              value={newPlaylistName}
-              onChange={e => setNewPlaylistName(e.target.value)}
-              placeholder="Name a new device playlist..."
-              className="min-w-0 flex-1 rounded-[16px] border bg-[#070e1f] px-4 py-3 text-xs sm:text-sm text-white placeholder-white/40 outline-none transition-colors duration-500"
-              style={{ borderColor: `${activeColor}33` }}
-            />
-            <button
-              type="submit"
-              disabled={!newPlaylistName.trim()}
-              style={{ backgroundColor: activeColor }}
-              className="rounded-[16px] px-5 text-xs sm:text-sm font-bold text-white disabled:opacity-40 hover:brightness-110 active:scale-95 transition-all duration-500 shadow-md"
-            >
-              Create
-            </button>
-          </form>
-
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {devicePlaylists.map(pl => (
-              <div 
-                key={pl.id} 
-                className="group relative rounded-[20px] bg-[#070e1f] border p-3 flex flex-col justify-between transition-colors duration-500"
-                style={{ borderColor: `${activeColor}33` }}
-              >
-                <div>
-                  <h4 className="text-sm font-bold text-white truncate">{pl.name}</h4>
-                  <p className="text-xs text-white/50 mt-1">{pl.songs.length} Tracks</p>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  {pl.songs.length > 0 && (
-                    <button
-                      onClick={() => onPlay(pl.songs[0], pl.songs)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-opacity-30 transition-colors duration-500"
-                      style={{ backgroundColor: `${activeColor}26`, color: activeColor }}
-                    >
-                      Play
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setDevicePlaylists(prev => prev.filter(p => p.id !== pl.id))}
-                    className="p-1.5 text-white/30 hover:text-rose-400 ml-auto"
-                    title="Delete playlist"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            ))}
-            {devicePlaylists.length === 0 && (
-              <div className="col-span-full py-12 text-center text-xs text-white/40">
-                No custom device playlists created yet.
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>
