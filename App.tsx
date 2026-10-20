@@ -79,7 +79,6 @@ const App: React.FC = () => {
   const pageTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const lastSavedTimeRef = useRef<number>(0);
   const wakeLockSentinelRef = useRef<any>(null);
-  const lastBackPressTimeRef = useRef<number>(0);
 
   // Screen Wake Lock API for background & active playback persistence
   const requestWakeLock = useCallback(async () => {
@@ -102,7 +101,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Native Hardware & Gesture Back Button Handling (Double-tap to exit from home root, hierarchy collapse otherwise)
+  // Native Hardware & Gesture Back Button Handling (Spotify/Apple Music-grade hierarchy)
   const handleAppBack = useCallback((): boolean => {
     if (songToAddToPlaylist) {
       setSongToAddToPlaylist(null);
@@ -120,6 +119,9 @@ const App: React.FC = () => {
       setActiveView('home');
       return true;
     }
+    try {
+      CapApp.exitApp();
+    } catch {}
     return false;
   }, [songToAddToPlaylist, isChatOpen, isPlayerOpen, activeView]);
 
@@ -127,19 +129,7 @@ const App: React.FC = () => {
     let removeListener: (() => void) | undefined;
     try {
       CapApp.addListener('backButton', () => {
-        const handled = handleAppBack();
-        if (!handled) {
-          const now = Date.now();
-          if (now - lastBackPressTimeRef.current < 2000) {
-            try {
-              CapApp.exitApp();
-            } catch {}
-          } else {
-            lastBackPressTimeRef.current = now;
-            setDownloadToast({ message: 'Press back again to exit' });
-            setTimeout(() => setDownloadToast(null), 2000);
-          }
-        }
+        handleAppBack();
       }).then(handle => {
         removeListener = () => handle.remove();
       });
@@ -150,18 +140,6 @@ const App: React.FC = () => {
       const handled = handleAppBack();
       if (handled) {
         window.history.pushState({ page: 'zenisai_app' }, '');
-      } else {
-        const now = Date.now();
-        if (now - lastBackPressTimeRef.current < 2000) {
-          try {
-            CapApp.exitApp();
-          } catch {}
-        } else {
-          lastBackPressTimeRef.current = now;
-          setDownloadToast({ message: 'Press back again to exit' });
-          setTimeout(() => setDownloadToast(null), 2000);
-          window.history.pushState({ page: 'zenisai_app' }, '');
-        }
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -204,7 +182,7 @@ const App: React.FC = () => {
       if (isPlaying) {
         keepAudioAlive();
       }
-    }, 5000);
+    }, 8000);
 
     return () => {
       clearInterval(heartbeat);
@@ -238,6 +216,7 @@ const App: React.FC = () => {
     localStorage.setItem('zenisai_shuffle', String(isShuffle));
   }, [isShuffle]);
 
+  // Keep native loop property synchronized for 100% reliable hardware repeat one
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.loop = (repeatMode === 'one');
@@ -253,6 +232,7 @@ const App: React.FC = () => {
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden') {
         saveCurrentTime();
+        // Keep web audio context alive when tab is in background
         if (analyserRef.current?.context && analyserRef.current.context.state === 'suspended') {
           analyserRef.current.context.resume().catch(() => {});
         }
@@ -322,6 +302,7 @@ const App: React.FC = () => {
       const err = audio.error;
       if (err) {
         if (currentSong && (currentSong.isLocal || currentSong.id.startsWith('local_'))) {
+          // Automatic recovery for local device tracks by regenerating fresh playable URL
           deviceMusicService.getPlayableUrl(currentSong.id, true).then((freshUrl) => {
             if (freshUrl && audioRef.current && audioRef.current.src !== freshUrl) {
               audioRef.current.removeAttribute('crossOrigin');
@@ -362,6 +343,7 @@ const App: React.FC = () => {
         const savedSong: Song = JSON.parse(savedSongStr);
         if (!savedSong) return;
 
+        // If local device track or blob url, re-hydrate live url from IndexedDB
         if (savedSong.isLocal || (savedSong.url && savedSong.url.startsWith('blob:'))) {
           const localSongs = await deviceMusicService.loadSavedSongs();
           const match = localSongs.find(s => s.id === savedSong.id);
@@ -424,6 +406,7 @@ const App: React.FC = () => {
     } else if (repeatMode === 'all') {
       handleNext();
     } else {
+      // Repeat off: advance if upcoming songs exist, otherwise pause
       const idx = queue.findIndex(s => s.id === currentSong?.id);
       if (idx !== -1 && idx < queue.length - 1) {
         handlePlaySong(queue[idx + 1]);
@@ -437,6 +420,7 @@ const App: React.FC = () => {
   };
   handleTrackEndedRef.current = handleTrackEnded;
 
+  // Background Preloader: Resolves upcoming song URLs so background track changes are synchronous & unkillable
   useEffect(() => {
     if (!currentSong || queue.length === 0) return;
     const currentIndex = queue.findIndex(s => s.id === currentSong.id);
@@ -511,6 +495,7 @@ const App: React.FC = () => {
     };
   };
 
+  // Centralized lyrics fetch supporting embedded device ID3 lyrics & remote LRCLIB
   const fetchLyrics = async (song: Song) => {
     if (song.embeddedLyrics && song.embeddedLyrics.trim().length > 0) {
       const parsed = parseLrcText(song.embeddedLyrics);
@@ -556,6 +541,7 @@ const App: React.FC = () => {
     if (!audioRef.current) return;
     let playSong = { ...song };
 
+    // If local device track, ensure live playable object URL is retrieved
     if (playSong.isLocal || playSong.id.startsWith('local_')) {
       const freshUrl = await deviceMusicService.getPlayableUrl(playSong.id);
       if (freshUrl) {
@@ -592,6 +578,7 @@ const App: React.FC = () => {
     updateThemeFromImage(playSong.artwork);
     fetchLyrics(playSong);
 
+    // If playing blob URL, remove crossOrigin to avoid browser security restriction on local origin
     if (playSong.url.startsWith('blob:')) {
       audioRef.current.removeAttribute('crossOrigin');
     } else {
@@ -619,12 +606,14 @@ const App: React.FC = () => {
     }
   };
 
+  // Requirement 2 & 7: Reliable Bluetooth and Media controls for Next and Previous
   const handleNext = useCallback(() => {
     if (queue.length === 0 || !currentSong) return;
     const idx = queue.findIndex(s => s.id === currentSong.id);
     if (idx !== -1 && idx < queue.length - 1) {
       handlePlaySong(queue[idx + 1]);
     } else if (repeatMode === 'all' || repeatMode === 'one') {
+      // User or Bluetooth Next during repeat one advances forward or wraps around
       if (queue.length === 1 && audioRef.current) {
         audioRef.current.currentTime = 0;
         playAudio();
@@ -641,6 +630,7 @@ const App: React.FC = () => {
 
   const handlePrev = useCallback(() => {
     if (queue.length === 0 || !currentSong) return;
+    // Standard Bluetooth / Headphone Back UX: if played > 3 seconds, restart current track
     if (audioRef.current && audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0;
       setProgress(0);
@@ -711,6 +701,7 @@ const App: React.FC = () => {
     }));
   };
 
+  // Requirement 3: Download song with embedded ID3v2 metadata (Title, Artist, Album, Cover Art, Lyrics)
   const downloadSong = async (song: Song) => {
     let target = { ...song };
     if (!target.url || (!target.isLocal && !target.url.startsWith('http'))) {
@@ -742,6 +733,7 @@ const App: React.FC = () => {
         if (!audioRes.ok) throw new Error(`HTTP status ${audioRes.status}`);
         audioBuf = await audioRes.arrayBuffer();
       } catch (directErr) {
+        // If direct fetch fails (e.g. CORS on third-party CDN), try fallback proxy
         if (targetAudioUrl.startsWith('http')) {
           const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetAudioUrl)}`;
           const proxyRes = await fetch(proxyUrl);
@@ -788,6 +780,7 @@ const App: React.FC = () => {
 
       const safeTitle = `${target.title} - ${target.artist}`.replace(/[/\\?%*:|"<>]/g, '_');
 
+      // Cache metadata under both combined safe title and raw title so auto-scan always detects it
       const metaPayload = {
         title: target.title,
         artist: target.artist,
@@ -892,6 +885,7 @@ const App: React.FC = () => {
       }
     }
 
+    // Fallback: Copy to clipboard
     try {
       await navigator.clipboard.writeText(`${song.title} - ${song.artist}`);
       setDownloadToast({ message: `Copied "${song.title}" to clipboard!` });
@@ -902,11 +896,12 @@ const App: React.FC = () => {
     }
   };
 
+  // Requirement 2 & 7: Comprehensive Web Media Session & Bluetooth Hardware Media Key Integration
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
     const session = navigator.mediaSession;
     const setHandler = (action: MediaSessionAction, handler: MediaSessionActionHandler | null) => {
-      try { session.setActionHandler(action, handler); } catch {}
+      try { session.setActionHandler(action, handler); } catch { /* Action is unsupported by this browser. */ }
     };
 
     setHandler('play', () => mediaActionsRef.current.play());
@@ -931,6 +926,7 @@ const App: React.FC = () => {
       setProgress(audioRef.current.currentTime);
     });
 
+    // Hardware Bluetooth headset media keys fallback
     const handleHardwareMediaKeys = (e: KeyboardEvent) => {
       if (e.key === 'MediaPlayPause') {
         togglePlay();
@@ -957,6 +953,7 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Update Media Session Notification Artwork & Metadata reliably for AVRCP Bluetooth & Lock Screen
   useEffect(() => {
     if (!currentSong || !('mediaSession' in navigator)) return;
     const artworkUrl = currentSong.artwork || '/icons/android-chrome-512x512.png';
@@ -977,6 +974,7 @@ const App: React.FC = () => {
     } catch {}
   }, [currentSong]);
 
+  // Update Playback State and Position State
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
     try {
@@ -989,7 +987,7 @@ const App: React.FC = () => {
           position: Math.min(Math.max(0, progress), audio.duration)
         });
       }
-    } catch {}
+    } catch { /* Position state is optional. */ }
   }, [isPlaying, progress]);
 
   const handlePageTouchStart = (event: React.TouchEvent<HTMLElement>) => {
