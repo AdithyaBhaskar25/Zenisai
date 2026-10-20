@@ -79,6 +79,7 @@ const App: React.FC = () => {
   const pageTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const lastSavedTimeRef = useRef<number>(0);
   const wakeLockSentinelRef = useRef<any>(null);
+  const lastBackPressTimeRef = useRef<number>(0);
 
   // Screen Wake Lock API for background & active playback persistence
   const requestWakeLock = useCallback(async () => {
@@ -101,7 +102,7 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Native Hardware & Gesture Back Button Handling (Spotify/Apple Music-grade hierarchy)
+  // Native Hardware & Gesture Back Button Handling (Double-tap to exit from home root, hierarchy collapse otherwise)
   const handleAppBack = useCallback((): boolean => {
     if (songToAddToPlaylist) {
       setSongToAddToPlaylist(null);
@@ -128,9 +129,16 @@ const App: React.FC = () => {
       CapApp.addListener('backButton', () => {
         const handled = handleAppBack();
         if (!handled) {
-          try {
-            CapApp.exitApp();
-          } catch {}
+          const now = Date.now();
+          if (now - lastBackPressTimeRef.current < 2000) {
+            try {
+              CapApp.exitApp();
+            } catch {}
+          } else {
+            lastBackPressTimeRef.current = now;
+            setDownloadToast({ message: 'Press back again to exit' });
+            setTimeout(() => setDownloadToast(null), 2000);
+          }
         }
       }).then(handle => {
         removeListener = () => handle.remove();
@@ -142,6 +150,18 @@ const App: React.FC = () => {
       const handled = handleAppBack();
       if (handled) {
         window.history.pushState({ page: 'zenisai_app' }, '');
+      } else {
+        const now = Date.now();
+        if (now - lastBackPressTimeRef.current < 2000) {
+          try {
+            CapApp.exitApp();
+          } catch {}
+        } else {
+          lastBackPressTimeRef.current = now;
+          setDownloadToast({ message: 'Press back again to exit' });
+          setTimeout(() => setDownloadToast(null), 2000);
+          window.history.pushState({ page: 'zenisai_app' }, '');
+        }
       }
     };
     window.addEventListener('popstate', handlePopState);
