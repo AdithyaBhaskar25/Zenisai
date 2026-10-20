@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Playlist, Song } from '../types';
+import DeviceMusicView from './DeviceMusicView';
 
 interface LibraryViewProps {
   playlists: Playlist[];
@@ -9,6 +10,9 @@ interface LibraryViewProps {
   onAddClick: (song: Song) => void;
   onDownload: (song: Song) => void;
   onCreatePlaylist: (name: string) => void;
+  currentSong?: Song | null;
+  isPlaying?: boolean;
+  dominantColor?: string;
 }
 
 const formatDuration = (seconds?: number): string => {
@@ -19,10 +23,11 @@ const formatDuration = (seconds?: number): string => {
 };
 
 const LibraryView: React.FC<LibraryViewProps> = ({ 
-  playlists, setPlaylists, onPlay, onRemoveFromPlaylist, onAddClick, onDownload, onCreatePlaylist 
+  playlists, setPlaylists, onPlay, onRemoveFromPlaylist, onAddClick, onDownload, onCreatePlaylist,
+  currentSong, isPlaying, dominantColor
 }) => {
   const [activePlaylist, setActivePlaylist] = useState<Playlist | null>(null);
-  const [activeTab, setActiveTab] = useState<'saved' | 'playlists'>('saved');
+  const [activeTab, setActiveTab] = useState<'saved' | 'playlists' | 'device'>('saved');
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
@@ -185,7 +190,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
           role="tab" 
           aria-selected={activeTab === 'saved'} 
           onClick={() => setActiveTab('saved')} 
-          className={`flex-1 border-b-2 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'saved' ? 'border-accent text-white' : 'border-transparent text-white/40 hover:text-white/70'}`}
+          className={`flex-1 border-b-2 py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${activeTab === 'saved' ? 'border-accent text-white' : 'border-transparent text-white/40 hover:text-white/70'}`}
         >
           <svg className={`w-4 h-4 ${activeTab === 'saved' ? 'text-accent fill-accent' : 'text-current'}`} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" />
@@ -196,10 +201,21 @@ const LibraryView: React.FC<LibraryViewProps> = ({
           role="tab" 
           aria-selected={activeTab === 'playlists'} 
           onClick={() => setActiveTab('playlists')} 
-          className={`flex-1 border-b-2 py-3 text-sm font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'playlists' ? 'border-accent text-white' : 'border-transparent text-white/40 hover:text-white/70'}`}
+          className={`flex-1 border-b-2 py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${activeTab === 'playlists' ? 'border-accent text-white' : 'border-transparent text-white/40 hover:text-white/70'}`}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
           Playlists ({playlists.filter(p => p.id !== 'favs').length})
+        </button>
+        <button 
+          role="tab" 
+          aria-selected={activeTab === 'device'} 
+          onClick={() => setActiveTab('device')} 
+          className={`flex-1 border-b-2 py-3 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-colors ${activeTab === 'device' ? 'border-emerald-400 text-white' : 'border-transparent text-white/40 hover:text-white/70'}`}
+        >
+          <svg className={`w-4 h-4 ${activeTab === 'device' ? 'text-emerald-400' : 'text-current'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+          </svg>
+          Device Music
         </button>
       </div>
 
@@ -413,7 +429,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({
             </div>
           )}
         </div>
-      ) : (
+      ) : activeTab === 'playlists' ? (
         /* Playlists Section */
         <div className="space-y-6">
           <form 
@@ -487,6 +503,15 @@ const LibraryView: React.FC<LibraryViewProps> = ({
             )}
           </div>
         </div>
+      ) : (
+        <DeviceMusicView 
+          onPlay={onPlay} 
+          onAddClick={onAddClick} 
+          onDownload={onDownload} 
+          currentSong={currentSong} 
+          isPlaying={isPlaying} 
+          dominantColor={dominantColor}
+        />
       )}
     </div>
   );

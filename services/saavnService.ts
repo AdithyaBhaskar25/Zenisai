@@ -48,9 +48,16 @@ export const saavnService = {
   // Helper to map API song to our internal Song type
   mapSong(apiSong: any) {
     // Pick highest quality image
-    const artwork = apiSong.image?.[apiSong.image.length - 1]?.url || '';
+    let artwork = apiSong.image?.[apiSong.image.length - 1]?.url || '';
+    if (artwork.startsWith('http://')) {
+      artwork = artwork.replace(/^http:\/\//i, 'https://');
+    }
+
     // Pick highest quality download link (usually 320kbps is last)
-    const url = apiSong.downloadUrl?.[apiSong.downloadUrl.length - 1]?.url || '';
+    let url = apiSong.downloadUrl?.[apiSong.downloadUrl.length - 1]?.url || '';
+    if (url.startsWith('http://')) {
+      url = url.replace(/^http:\/\//i, 'https://');
+    }
     
     return {
       id: apiSong.id,

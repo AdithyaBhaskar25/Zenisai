@@ -9,6 +9,7 @@ interface HomeViewProps {
   isPlaying: boolean;
   onAddClick: (song: Song) => void;
   onDownload: (song: Song) => void;
+  onShare?: (song: Song) => void;
   progress: number;
   isFavorite: (songId: string) => boolean;
   onToggleFavorite: (song: Song) => void;
@@ -16,7 +17,7 @@ interface HomeViewProps {
 }
 
 const HomeView: React.FC<HomeViewProps> = ({ 
-  onPlay, currentSong, isPlaying, onAddClick, onDownload, progress, isFavorite, onToggleFavorite, onTogglePlay 
+  onPlay, currentSong, isPlaying, onAddClick, onDownload, onShare, progress, isFavorite, onToggleFavorite, onTogglePlay 
 }) => {
   const [tamilHits, setTamilHits] = useState<Song[]>([]);
   const [englishHits, setEnglishHits] = useState<Song[]>([]);
@@ -27,29 +28,54 @@ const HomeView: React.FC<HomeViewProps> = ({
   const feedScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let isCancelled = false;
     const fetchDiscovery = async () => {
       setLoading(true);
       try {
         const baseTamilQuery = 'New Tamil Songs';
         const baseEnglishQuery = 'New English Songs';
 
+        // Provide smart recommendations even for local device songs by querying artist / title
+        let suggestionsPromise: Promise<any>;
+        if (currentSong) {
+          if (currentSong.isLocal || currentSong.id.startsWith('local_')) {
+            const query = (currentSong.artist && currentSong.artist !== 'Unknown Artist')
+              ? currentSong.artist
+              : (currentSong.title || 'Trending Hits');
+            suggestionsPromise = saavnService.searchSongs(query, 0, 12).catch(() => []);
+          } else {
+            suggestionsPromise = saavnService.getSuggestions(currentSong.id, 12)
+              .catch(() => saavnService.searchSongs(currentSong.artist || 'Trending Hits', 0, 12))
+              .catch(() => []);
+          }
+        } else {
+          suggestionsPromise = saavnService.searchSongs('Trending Hits', 0, 12).catch(() => []);
+        }
+
         const [t, e, rec] = await Promise.all([
-          saavnService.searchSongs(baseTamilQuery, 0, 12),
-          saavnService.searchSongs(baseEnglishQuery, 0, 12),
-          currentSong ? saavnService.getSuggestions(currentSong.id, 12) : saavnService.searchSongs('New Releases', 0, 12)
+          saavnService.searchSongs(baseTamilQuery, 0, 12).catch(() => []),
+          saavnService.searchSongs(baseEnglishQuery, 0, 12).catch(() => []),
+          suggestionsPromise.catch(() => [])
         ]);
 
-        setTamilHits(t.map(saavnService.mapSong));
-        setEnglishHits(e.map(saavnService.mapSong));
-        setRecommended(rec.map(saavnService.mapSong));
+        if (isCancelled) return;
+
+        const validT = Array.isArray(t) ? t : [];
+        const validE = Array.isArray(e) ? e : [];
+        const validRec = Array.isArray(rec) ? rec : [];
+
+        setTamilHits(validT.map(saavnService.mapSong).filter(Boolean));
+        setEnglishHits(validE.map(saavnService.mapSong).filter(Boolean));
+        setRecommended(validRec.map(saavnService.mapSong).filter(Boolean));
       } catch (err) {
-        console.error("Discovery failed", err);
+        console.warn("Discovery notice (applying offline defaults):", err);
       } finally {
-        setLoading(false);
+        if (!isCancelled) setLoading(false);
       }
     };
     fetchDiscovery();
-  }, [currentSong?.id]);
+    return () => { isCancelled = true; };
+  }, [currentSong?.id, currentSong?.artist, currentSong?.title]);
 
   // Synchronized lyrics using central service & cache
   useEffect(() => {
@@ -219,6 +245,20 @@ const HomeView: React.FC<HomeViewProps> = ({
                     <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" />
                   </svg>
                 </button>
+                {onShare && (
+                  <button 
+                    aria-label="Share track" 
+                    onClick={event => { event.stopPropagation(); onShare(song); }} 
+                    className="grid h-11 w-11 place-items-center rounded-full border border-white/20 bg-black/35 text-white backdrop-blur-md active:scale-90 transition-transform"
+                  >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="18" cy="5" r="3" />
+                      <circle cx="6" cy="12" r="3" />
+                      <circle cx="18" cy="19" r="3" />
+                      <path d="m8.6 10.7 6.8-4.4m-6.8 7 6.8 4.1" />
+                    </svg>
+                  </button>
+                )}
                 {isCurrent && (
                   <button
                     aria-label={isPlaying ? 'Pause' : 'Play'}

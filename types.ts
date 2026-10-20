@@ -8,7 +8,9 @@ export interface Song {
   url: string;
   duration: number;
   lyrics?: string;
-  language: 'Tamil' | 'English';
+  embeddedLyrics?: string;
+  language?: 'Tamil' | 'English' | string;
+  isLocal?: boolean;
 }
 
 export interface Playlist {

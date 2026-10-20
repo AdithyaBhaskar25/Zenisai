@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { App as CapApp } from '@capacitor/app';
 import { Song, AppView, Playlist } from './types';
 import { saavnService } from './services/saavnService';
-import { lyricsService, ParsedLyricLine } from './services/lyricsService';
+import { lyricsService, ParsedLyricLine, parseLrcText } from './services/lyricsService';
+import { id3Service } from './services/id3Service';
+import { deviceMusicService } from './services/deviceMusicService';
 import PlayerFull from './components/PlayerFull';
 import FloatingHub from './components/FloatingHub';
 import HomeView from './components/HomeView';
@@ -54,6 +57,7 @@ const App: React.FC = () => {
   const [currentPlainLyrics, setCurrentPlainLyrics] = useState<string[]>([]);
   const [dominantColor, setDominantColor] = useState('#3b82f6');
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<Song | null>(null);
+  const [downloadToast, setDownloadToast] = useState<{ message: string; isError?: boolean } | null>(null);
 
   const [repeatMode, setRepeatMode] = useState<'off' | 'one' | 'all'>(() => {
     try {
@@ -97,12 +101,93 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Native Hardware & Gesture Back Button Handling (Spotify/Apple Music-grade hierarchy)
+  const handleAppBack = useCallback((): boolean => {
+    if (songToAddToPlaylist) {
+      setSongToAddToPlaylist(null);
+      return true;
+    }
+    if (isChatOpen) {
+      setIsChatOpen(false);
+      return true;
+    }
+    if (isPlayerOpen) {
+      setIsPlayerOpen(false);
+      return true;
+    }
+    if (activeView !== 'home') {
+      setActiveView('home');
+      return true;
+    }
+    try {
+      CapApp.exitApp();
+    } catch {}
+    return false;
+  }, [songToAddToPlaylist, isChatOpen, isPlayerOpen, activeView]);
+
+  useEffect(() => {
+    let removeListener: (() => void) | undefined;
+    try {
+      CapApp.addListener('backButton', () => {
+        handleAppBack();
+      }).then(handle => {
+        removeListener = () => handle.remove();
+      });
+    } catch {}
+
+    window.history.replaceState({ page: 'zenisai_app' }, '');
+    const handlePopState = () => {
+      const handled = handleAppBack();
+      if (handled) {
+        window.history.pushState({ page: 'zenisai_app' }, '');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      if (removeListener) removeListener();
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [handleAppBack]);
+
+  // Enhanced Background Audio Keep-Alive & Wake Lock to stop OS from suddenly killing playback on screen lock
   useEffect(() => {
     if (isPlaying) {
       requestWakeLock();
     } else {
       releaseWakeLock();
     }
+
+    const keepAudioAlive = () => {
+      if (isPlaying && audioRef.current && audioRef.current.paused) {
+        audioRef.current.play().catch(() => {});
+      }
+      if (analyserRef.current?.context && analyserRef.current.context.state === 'suspended') {
+        analyserRef.current.context.resume().catch(() => {});
+      }
+    };
+
+    let removeStateListener: (() => void) | undefined;
+    try {
+      CapApp.addListener('appStateChange', (state) => {
+        if (!state.isActive && isPlaying) {
+          keepAudioAlive();
+        }
+      }).then(handle => {
+        removeStateListener = () => handle.remove();
+      });
+    } catch {}
+
+    const heartbeat = setInterval(() => {
+      if (isPlaying) {
+        keepAudioAlive();
+      }
+    }, 8000);
+
+    return () => {
+      clearInterval(heartbeat);
+      if (removeStateListener) removeStateListener();
+    };
   }, [isPlaying, requestWakeLock, releaseWakeLock]);
 
   useEffect(() => {
@@ -213,8 +298,22 @@ const App: React.FC = () => {
       }
     };
     const handleEnded = () => handleTrackEndedRef.current();
-    const handleError = (e: any) => {
-      console.warn('Audio playback recovery notice:', e);
+    const handleError = () => {
+      const err = audio.error;
+      if (err) {
+        if (currentSong && (currentSong.isLocal || currentSong.id.startsWith('local_'))) {
+          // Automatic recovery for local device tracks by regenerating fresh playable URL
+          deviceMusicService.getPlayableUrl(currentSong.id, true).then((freshUrl) => {
+            if (freshUrl && audioRef.current && audioRef.current.src !== freshUrl) {
+              audioRef.current.removeAttribute('crossOrigin');
+              audioRef.current.src = freshUrl;
+              playAudio();
+            }
+          });
+        } else if (audio.src && !audio.src.startsWith('blob:')) {
+          console.warn('Audio media notice code:', err.code);
+        }
+      }
     };
 
     audio.addEventListener('timeupdate', updateProgress);
@@ -242,7 +341,21 @@ const App: React.FC = () => {
       if (!savedSongStr) return;
       try {
         const savedSong: Song = JSON.parse(savedSongStr);
-        if (!savedSong?.url) return;
+        if (!savedSong) return;
+
+        // If local device track or blob url, re-hydrate live url from IndexedDB
+        if (savedSong.isLocal || (savedSong.url && savedSong.url.startsWith('blob:'))) {
+          const localSongs = await deviceMusicService.loadSavedSongs();
+          const match = localSongs.find(s => s.id === savedSong.id);
+          if (match && match.url) {
+            savedSong.url = match.url;
+            setCurrentSong(savedSong);
+          } else {
+            return;
+          }
+        }
+
+        if (!savedSong.url) return;
         const savedTime = parseFloat(localStorage.getItem('zenisai_playback_time') || '0');
 
         if (audioRef.current) {
@@ -290,8 +403,19 @@ const App: React.FC = () => {
         audioRef.current.currentTime = 0;
         playAudio();
       }
-    } else {
+    } else if (repeatMode === 'all') {
       handleNext();
+    } else {
+      // Repeat off: advance if upcoming songs exist, otherwise pause
+      const idx = queue.findIndex(s => s.id === currentSong?.id);
+      if (idx !== -1 && idx < queue.length - 1) {
+        handlePlaySong(queue[idx + 1]);
+      } else {
+        setIsPlaying(false);
+        if ('mediaSession' in navigator) {
+          navigator.mediaSession.playbackState = 'paused';
+        }
+      }
     }
   };
   handleTrackEndedRef.current = handleTrackEnded;
@@ -371,8 +495,17 @@ const App: React.FC = () => {
     };
   };
 
-  // Requirement 6: Centralized lyrics fetch shared reliably across mini player and full player
+  // Centralized lyrics fetch supporting embedded device ID3 lyrics & remote LRCLIB
   const fetchLyrics = async (song: Song) => {
+    if (song.embeddedLyrics && song.embeddedLyrics.trim().length > 0) {
+      const parsed = parseLrcText(song.embeddedLyrics);
+      const plain = song.embeddedLyrics.split('\n').filter(Boolean);
+      setCurrentParsedLyrics(parsed);
+      setCurrentPlainLyrics(plain);
+      setCurrentSyncedLyrics(parsed.length > 0 ? song.embeddedLyrics : '');
+      setCurrentLyrics(plain.join('\n'));
+      return;
+    }
     setCurrentLyrics('Fetching lyrics...');
     setCurrentSyncedLyrics('');
     try {
@@ -382,9 +515,9 @@ const App: React.FC = () => {
       setCurrentSyncedLyrics(res.rawSynced);
       setCurrentLyrics(res.plainLyrics.join('\n'));
     } catch {
-      setCurrentLyrics('Lyrics unavailable.');
+      setCurrentLyrics('No lyrics found for this track.');
       setCurrentParsedLyrics([]);
-      setCurrentPlainLyrics([]);
+      setCurrentPlainLyrics(['No lyrics found for this track.']);
       setCurrentSyncedLyrics('');
     }
   };
@@ -407,12 +540,20 @@ const App: React.FC = () => {
   const handlePlaySong = async (song: Song, newQueue?: Song[]) => {
     if (!audioRef.current) return;
     let playSong = { ...song };
-    if (!playSong.url) {
+
+    // If local device track, ensure live playable object URL is retrieved
+    if (playSong.isLocal || playSong.id.startsWith('local_')) {
+      const freshUrl = await deviceMusicService.getPlayableUrl(playSong.id);
+      if (freshUrl) {
+        playSong.url = freshUrl;
+      }
+    } else if (!playSong.url) {
       try {
         const details = await saavnService.getSongDetails(song.id);
         playSong = saavnService.mapSong(details);
       } catch (e) { return; }
     }
+
     if (!analyserRef.current) {
       try {
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -426,14 +567,24 @@ const App: React.FC = () => {
         console.warn('Analyser setup notice:', e);
       }
     }
+
     if (currentSong?.id === playSong.id) {
       if (newQueue) setQueueForSelection(playSong, newQueue);
       togglePlay();
       return;
     }
+
     setCurrentSong(playSong);
     updateThemeFromImage(playSong.artwork);
     fetchLyrics(playSong);
+
+    // If playing blob URL, remove crossOrigin to avoid browser security restriction on local origin
+    if (playSong.url.startsWith('blob:')) {
+      audioRef.current.removeAttribute('crossOrigin');
+    } else {
+      audioRef.current.crossOrigin = 'anonymous';
+    }
+
     audioRef.current.src = playSong.url;
     audioRef.current.loop = (repeatMode === 'one');
     playAudio();
@@ -550,21 +701,113 @@ const App: React.FC = () => {
     }));
   };
 
+  // Requirement 3: Download song with embedded ID3v2 metadata (Title, Artist, Album, Cover Art, Lyrics)
   const downloadSong = async (song: Song) => {
-    if (!song.url) {
-      const details = await saavnService.getSongDetails(song.id);
-      song = saavnService.mapSong(details);
+    let target = { ...song };
+    if (!target.url || (!target.isLocal && !target.url.startsWith('http'))) {
+      try {
+        const details = await saavnService.getSongDetails(target.id);
+        target = saavnService.mapSong(details);
+      } catch (e) {
+        console.warn('Fetch song details error:', e);
+      }
     }
-    if (!song.url) return;
+    if (!target.url) return;
+
+    setDownloadToast({ message: `Embedding metadata: ${target.title}...` });
+
     try {
-      const response = await fetch(song.url);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      let audioBuf: ArrayBuffer;
+      let targetAudioUrl = target.url;
+      if (targetAudioUrl.startsWith('http://')) {
+        targetAudioUrl = targetAudioUrl.replace(/^http:\/\//i, 'https://');
+      }
+
+      if (target.isLocal || target.id.startsWith('local_')) {
+        const freshUrl = await deviceMusicService.getPlayableUrl(target.id, true);
+        if (freshUrl) targetAudioUrl = freshUrl;
+      }
+
+      try {
+        const audioRes = await fetch(targetAudioUrl);
+        if (!audioRes.ok) throw new Error(`HTTP status ${audioRes.status}`);
+        audioBuf = await audioRes.arrayBuffer();
+      } catch (directErr) {
+        // If direct fetch fails (e.g. CORS on third-party CDN), try fallback proxy
+        if (targetAudioUrl.startsWith('http')) {
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetAudioUrl)}`;
+          const proxyRes = await fetch(proxyUrl);
+          if (!proxyRes.ok) throw directErr;
+          audioBuf = await proxyRes.arrayBuffer();
+        } else {
+          throw directErr;
+        }
+      }
+
+      let imageBytes: Uint8Array | undefined;
+      let mimeType = 'image/jpeg';
+      if (target.artwork && !target.artwork.startsWith('blob:') && !target.artwork.includes('picsum.photos')) {
+        try {
+          const imgUrl = target.artwork.startsWith('http://') ? target.artwork.replace(/^http:\/\//i, 'https://') : target.artwork;
+          const imgRes = await fetch(imgUrl);
+          if (imgRes.ok) {
+            const imgBuf = await imgRes.arrayBuffer();
+            imageBytes = new Uint8Array(imgBuf);
+            mimeType = imgRes.headers.get('content-type') || 'image/jpeg';
+          }
+        } catch {}
+      }
+
+      let lyricsToEmbed = target.lyrics || target.embeddedLyrics || '';
+      if (!lyricsToEmbed) {
+        try {
+          const lrc = await lyricsService.fetchLyrics(target);
+          if (lrc?.plainLyrics?.length) {
+            lyricsToEmbed = lrc.plainLyrics.join('\n');
+          }
+        } catch {}
+      }
+
+      const prepared = id3Service.prepareDownloadableAudio(audioBuf, {
+        title: target.title,
+        artist: target.artist,
+        album: target.album || 'Zenisai Music',
+        year: new Date().getFullYear().toString(),
+        lyrics: lyricsToEmbed,
+        imageBytes,
+        mimeType
+      });
+
+      const safeTitle = `${target.title} - ${target.artist}`.replace(/[/\\?%*:|"<>]/g, '_');
+
+      // Cache metadata under both combined safe title and raw title so auto-scan always detects it
+      const metaPayload = {
+        title: target.title,
+        artist: target.artist,
+        album: target.album || 'Zenisai Music',
+        lyrics: lyricsToEmbed,
+        artwork: target.artwork
+      };
+      await deviceMusicService.saveDownloadedMetadata(safeTitle, metaPayload);
+      await deviceMusicService.saveDownloadedMetadata(target.title, metaPayload);
+
+      const blob = new Blob([prepared.data], { type: prepared.mime });
+      const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `${song.title}.mp3`;
+      a.href = downloadUrl;
+      a.download = `${safeTitle}.${prepared.ext}`;
+      document.body.appendChild(a);
       a.click();
-    } catch (e) { console.error("Download failed", e); }
+      document.body.removeChild(a);
+      setTimeout(() => window.URL.revokeObjectURL(downloadUrl), 20000);
+
+      setDownloadToast({ message: `Downloaded "${target.title}" with metadata!` });
+      setTimeout(() => setDownloadToast(null), 3500);
+    } catch (e) {
+      console.error("Download failed", e);
+      setDownloadToast({ message: 'Download failed. Please check network connection.', isError: true });
+      setTimeout(() => setDownloadToast(null), 3000);
+    }
   };
 
   const searchAndPlay = async (query: string) => {
@@ -621,6 +864,36 @@ const App: React.FC = () => {
     const newP: Playlist = { id: Date.now().toString(), name, songs: [], artwork: `https://picsum.photos/seed/${name}/400/400` };
     setPlaylists(prev => [...prev, newP]);
     return newP;
+  };
+
+  const handleShareSong = async (song: Song) => {
+    const shareText = `Now listening to "${song.title}" by ${song.artist} on Zenisai`;
+    const shareData: ShareData = {
+      title: song.title,
+      text: shareText,
+    };
+    if (song.url && song.url.startsWith('http')) {
+      shareData.url = song.url;
+    }
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    // Fallback: Copy to clipboard
+    try {
+      await navigator.clipboard.writeText(`${song.title} - ${song.artist}`);
+      setDownloadToast({ message: `Copied "${song.title}" to clipboard!` });
+      setTimeout(() => setDownloadToast(null), 3000);
+    } catch {
+      setDownloadToast({ message: `"${song.title}" by ${song.artist}` });
+      setTimeout(() => setDownloadToast(null), 3000);
+    }
   };
 
   // Requirement 2 & 7: Comprehensive Web Media Session & Bluetooth Hardware Media Key Integration
@@ -750,6 +1023,7 @@ const App: React.FC = () => {
               isPlaying={isPlaying}
               onAddClick={setSongToAddToPlaylist}
               onDownload={downloadSong}
+              onShare={handleShareSong}
               progress={progress}
               isFavorite={songId => playlists.find(p => p.id === 'favs')?.songs.some(song => song.id === songId) || false}
               onToggleFavorite={toggleFavorite}
@@ -777,7 +1051,10 @@ const App: React.FC = () => {
               onRemoveFromPlaylist={(sid, pid) => setPlaylists(prev => prev.map(pl => pl.id === pid ? {...pl, songs: pl.songs.filter(s => s.id !== sid)} : pl))} 
               onAddClick={setSongToAddToPlaylist} 
               onDownload={downloadSong} 
-              onCreatePlaylist={createPlaylist} 
+              onCreatePlaylist={createPlaylist}
+              currentSong={currentSong}
+              isPlaying={isPlaying} 
+              dominantColor={dominantColor}
             />
           </div>
         )}
@@ -837,7 +1114,7 @@ const App: React.FC = () => {
           isFavorite={songId => playlists.find(p => p.id === 'favs')?.songs.some(s => s.id === songId) || false}
           onToggleFavorite={toggleFavorite}
           onDownload={downloadSong}
-          onShare={shareSong => navigator.share?.({ title: shareSong.title, url: shareSong.url }).catch(() => {})}
+          onShare={handleShareSong}
           isShuffle={isShuffle} 
           onToggleShuffle={toggleShuffle}
           repeatMode={repeatMode} 
@@ -903,6 +1180,13 @@ const App: React.FC = () => {
                 </div>
              </div>
           </div>
+        </div>
+      )}
+
+      {downloadToast && (
+        <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[500] max-w-sm w-[90%] px-4 py-2.5 rounded-2xl bg-[#0b1220]/95 border border-white/20 text-white text-xs font-semibold shadow-2xl backdrop-blur-xl flex items-center gap-2.5 animate-in fade-in slide-in-from-bottom duration-200">
+          <div className={`w-2 h-2 rounded-full shrink-0 ${downloadToast.isError ? 'bg-rose-500' : 'bg-accent animate-pulse'}`} />
+          <span className="truncate flex-1">{downloadToast.message}</span>
         </div>
       )}
     </div>
