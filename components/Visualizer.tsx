@@ -11,7 +11,7 @@ const Visualizer: React.FC<VisualizerProps> = ({ analyser, color, isPlaying, cla
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!analyser || !canvasRef.current || !isPlaying) return;
+    if (!canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -24,52 +24,52 @@ const Visualizer: React.FC<VisualizerProps> = ({ analyser, color, isPlaying, cla
     canvas.height = rect.height * dpr;
     ctx.scale(dpr, dpr);
 
-    const bufferLength = analyser.frequencyBinCount;
-    // We only use the lower 60% of frequencies for a better "bass-heavy" visual
+    const bufferLength = analyser ? analyser.frequencyBinCount : 32;
     const activeLength = Math.floor(bufferLength * 0.6);
     const dataArray = new Uint8Array(bufferLength);
 
     let animationId: number;
+    let phase = 0;
 
     const draw = () => {
       animationId = requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(dataArray);
-
-      // Clear with a transparent finish for AMOLED backgrounds
       ctx.clearRect(0, 0, rect.width, rect.height);
 
-      const barWidth = (rect.width / activeLength) * 2.5;
+      if (analyser && isPlaying) {
+        analyser.getByteFrequencyData(dataArray);
+      } else {
+        // Idle gentle breathing animation when paused or no analyser
+        phase += 0.04;
+        for (let i = 0; i < activeLength; i++) {
+          dataArray[i] = Math.floor(Math.sin(phase + (i * 0.2)) * 30 + 35);
+        }
+      }
+
+      const barWidth = Math.max(2, (rect.width / activeLength) * 2.2);
       let x = 0;
 
-      // Visual styling
+      // Visual styling & ambient glow pass
       ctx.lineCap = 'round';
-      ctx.lineWidth = 3;
-      ctx.shadowBlur = 15;
+      ctx.shadowBlur = 18;
       ctx.shadowColor = color;
-      ctx.strokeStyle = color;
       ctx.fillStyle = color;
 
       for (let i = 0; i < activeLength; i++) {
-        // Calculate height based on frequency intensity
-        // Adding a small multiplier to make it pop more
         const val = dataArray[i];
-        const barHeight = (val / 255) * (rect.height * 0.8);
-
-        // Center vertically for a "Pulse" look
+        const barHeight = Math.max(4, (val / 255) * (rect.height * 0.85));
         const yTop = (rect.height - barHeight) / 2;
 
-        // Draw pill-shaped bars
         if (barHeight > 2) {
-          // Subtle opacity based on frequency height
-          ctx.globalAlpha = Math.max(0.2, val / 255);
+          // Dynamic alpha for depth
+          ctx.globalAlpha = Math.max(0.25, val / 255);
           
-          // Draw rounded rectangle (pill)
+          // Draw rounded pill bar
           ctx.beginPath();
-          ctx.roundRect(x, yTop, barWidth - 1, barHeight, 10);
+          ctx.roundRect(x, yTop, Math.max(1, barWidth - 1.5), barHeight, 10);
           ctx.fill();
         }
 
-        x += barWidth + 1;
+        x += barWidth + 1.5;
       }
     };
 
