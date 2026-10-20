@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { getGeminiChatResponse } from '../services/geminiService';
 import { Song } from '../types';
-import Visualizer from './Visualizer'; // Assuming Visualizer component is in the same directory or adjust import accordingly
+import Visualizer from './Visualizer';
 
 interface ChatBotViewProps {
   onClose: () => void;
@@ -178,18 +178,12 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({
     }
   };
 
-  const suggestionChips = [
-    'Play top hits',
-    'Recommend relaxing music',
-    'Add current track to favorites'
-  ];
-
   return (
     <div className="fixed inset-0 z-[500] flex flex-col backdrop-blur-3xl transition-all duration-500" style={{ background: 'color-mix(in srgb, var(--color-bg) 92%, var(--color-primary) 8%)' }}>
       
       {/* Ambient Glow background accents */}
       <div 
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[250px] rounded-full blur-[130px] pointer-events-none opacity-30 transition-all duration-700" 
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[450px] h-[300px] rounded-full blur-[140px] pointer-events-none opacity-35 transition-all duration-700" 
         style={{ backgroundColor: dominantColor }}
       />
 
@@ -221,28 +215,31 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({
         </button>
       </header>
 
-      {/* Big, Beautiful Standout Visualizer & Metadata Dock */}
+      {/* Large, Beautiful Standout Hero Visualizer & Metadata Section */}
       {currentSong && (
-        <div className="relative z-10 mx-4 mt-4 p-4 rounded-[26px] border border-white/15 bg-[#070e1f]/80 shadow-2xl backdrop-blur-xl flex flex-col gap-3.5 overflow-hidden group">
-          <div className="absolute inset-0 opacity-15 pointer-events-none transition-all duration-700 blur-2xl" style={{ backgroundColor: dominantColor }} />
+        <div className="relative z-10 mx-5 mt-4 p-5 rounded-[28px] border border-white/15 bg-[#070e1f]/85 shadow-2xl backdrop-blur-2xl flex flex-col gap-4 overflow-hidden group">
+          <div className="absolute inset-0 opacity-20 pointer-events-none transition-all duration-700 blur-3xl" style={{ backgroundColor: dominantColor }} />
           
           <div className="relative z-10 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5 min-w-0">
+            <div className="flex items-center gap-4 min-w-0">
               <img 
                 src={currentSong.artwork} 
                 alt="" 
-                className="w-14 h-14 rounded-2xl object-cover shadow-xl border border-white/20 shrink-0 group-hover:scale-105 transition-transform duration-500" 
+                className="w-16 h-16 rounded-2xl object-cover shadow-2xl border border-white/20 shrink-0 group-hover:scale-105 transition-transform duration-500" 
               />
               <div className="min-w-0">
-                <span className="text-[9px] font-black uppercase tracking-widest text-white/40 block mb-0.5">Now Playing Dock</span>
-                <p className="text-sm font-extrabold text-white truncate">{currentSong.title}</p>
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: dominantColor }} />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white/50">Now Playing</span>
+                </div>
+                <p className="text-sm sm:text-base font-extrabold text-white truncate">{currentSong.title}</p>
                 <p className="text-xs text-white/60 truncate mt-0.5">{currentSong.artist} · {currentSong.album || 'Zenisai Music'}</p>
               </div>
             </div>
 
             <button 
               onClick={() => playbackControls.toggle()} 
-              className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-lg active:scale-95 transition-all shrink-0 hover:brightness-110"
+              className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg active:scale-95 transition-all shrink-0 hover:brightness-110"
               style={{ backgroundColor: dominantColor }}
             >
               {isPlaying ? (
@@ -253,8 +250,8 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({
             </button>
           </div>
 
-          {/* Integrated Live Frequency Visualizer Waveform */}
-          <div className="relative z-10 w-full h-12 bg-black/30 rounded-xl overflow-hidden border border-white/10 px-2 py-1 shadow-inner flex items-center justify-center">
+          {/* Expanded Live Frequency Visualizer Waveform */}
+          <div className="relative z-10 w-full h-16 bg-black/40 rounded-2xl overflow-hidden border border-white/10 px-3 py-1.5 shadow-inner flex items-center justify-center">
             <Visualizer analyser={analyser} color={dominantColor} isPlaying={isPlaying} className="w-full h-full" />
           </div>
         </div>
@@ -317,21 +314,6 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({
           </div>
         )}
       </div>
-
-      {/* Suggestion Chips */}
-      {!isLiveActive && messages.length <= 2 && (
-        <div className="relative z-10 px-5 pb-3 flex gap-2 overflow-x-auto no-scrollbar">
-          {suggestionChips.map((chip, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleSend(chip)}
-              className="px-3.5 py-1.5 rounded-full text-[11px] font-semibold bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 text-white/80 shrink-0 transition-all active:scale-95 shadow-sm"
-            >
-              ✨ {chip}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Footer / Input */}
       <footer className="relative z-10 p-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] border-t border-white/[0.08] bg-white/[0.02] backdrop-blur-md">
