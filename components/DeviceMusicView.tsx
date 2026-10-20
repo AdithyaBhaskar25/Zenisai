@@ -335,10 +335,10 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
               <button
                 onClick={() => folderInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-full border bg-blue-950/50 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-900/60 active:scale-95 transition-all duration-500 shadow-md"
-                style={{ borderColor: 'rgba(59, 130, 246, 0.4)' }}
+                className="flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold text-white shadow-sm active:scale-95 transition-all duration-500"
+                style={{ backgroundColor: `${activeColor}26`, borderColor: `${activeColor}66`, color: '#ffffff' }}
               >
-                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 transition-colors duration-500" style={{ color: activeColor }} fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                 </svg>
                 Scan Folder
@@ -346,10 +346,10 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-full border bg-blue-950/50 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-900/60 active:scale-95 transition-all duration-500 shadow-md"
-                style={{ borderColor: 'rgba(59, 130, 246, 0.4)' }}
+                className="flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold text-white shadow-sm active:scale-95 transition-all duration-500"
+                style={{ backgroundColor: `${activeColor}26`, borderColor: `${activeColor}66`, color: '#ffffff' }}
               >
-                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 transition-colors duration-500" style={{ color: activeColor }} fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
                 Add Files
