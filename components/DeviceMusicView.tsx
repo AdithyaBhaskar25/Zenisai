@@ -24,8 +24,15 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
   onDownload,
   currentSong,
   isPlaying,
-  dominantColor = '#3b82f6'
+  dominantColor
 }) => {
+  // Use active theme dominant color if a song is playing, otherwise default blue
+  const activeColor = isPlaying && currentSong && dominantColor ? dominantColor : '#3b82f6';
+  const accentGlowStyle = {
+    borderColor: `${activeColor}40`,
+    backgroundColor: `${activeColor}15`
+  };
+
   const [deviceSongs, setDeviceSongs] = useState<Song[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeSubTab, setActiveSubTab] = useState<'tracks' | 'artists' | 'albums' | 'playlists'>('tracks');
@@ -278,22 +285,34 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
       {hiddenInputs}
 
       {/* Device Storage Status & Scanner Card */}
-      <div className="relative overflow-hidden rounded-[24px] border border-blue-500/20 bg-gradient-to-br from-blue-600/15 via-[#070e1f] to-[#030712] p-5 sm:p-6 shadow-2xl backdrop-blur-xl">
+      <div 
+        className="relative overflow-hidden rounded-[24px] border p-5 sm:p-6 shadow-2xl backdrop-blur-xl transition-colors duration-500"
+        style={{
+          borderColor: `${activeColor}33`,
+          backgroundImage: `linear-gradient(to bottom right, ${activeColor}26, #070e1f, #030712)`
+        }}
+      >
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
-          <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shadow-2xl border border-blue-500/30 shrink-0 bg-blue-950/40 flex items-center justify-center">
-            <svg className="w-10 h-10 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div 
+            className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shadow-2xl border shrink-0 flex items-center justify-center transition-colors duration-500"
+            style={{ borderColor: `${activeColor}4D`, backgroundColor: `${activeColor}1A` }}
+          >
+            <svg className="w-10 h-10" style={{ color: activeColor }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
             </svg>
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 to-transparent flex items-end p-1.5">
-              <span className="text-[9px] font-black uppercase text-blue-300 tracking-wider">Storage</span>
+              <span className="text-[9px] font-black uppercase tracking-wider" style={{ color: activeColor }}>Storage</span>
             </div>
           </div>
 
           <div className="flex-1 text-center sm:text-left min-w-0">
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
               <h2 className="text-xl sm:text-2xl font-extrabold text-white">Device Music</h2>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+              <span 
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-colors duration-500"
+                style={{ backgroundColor: `${activeColor}26`, color: activeColor, borderColor: `${activeColor}4D` }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: activeColor }} />
                 {permissionGranted ? 'Storage Access Active' : 'Storage Permission Needed'}
               </span>
             </div>
@@ -306,8 +325,8 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
               <button
                 onClick={handleAutoScan}
                 disabled={isAutoScanning}
-                style={{ backgroundColor: dominantColor || '#2563eb' }}
-                className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold text-white shadow-lg shadow-blue-500/30 hover:brightness-110 active:scale-95 transition-all disabled:opacity-75"
+                style={{ backgroundColor: activeColor }}
+                className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-bold text-white shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-75"
               >
                 <svg className={`w-4 h-4 ${isAutoScanning ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -317,9 +336,10 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
               <button
                 onClick={() => folderInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-950/30 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-900/40 active:scale-95 transition-all"
+                className="flex items-center gap-2 rounded-full border bg-blue-950/30 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-900/40 active:scale-95 transition-all"
+                style={{ borderColor: `${activeColor}33` }}
               >
-                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" style={{ color: activeColor }} fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                 </svg>
                 Scan Folder
@@ -327,9 +347,10 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-950/30 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-900/40 active:scale-95 transition-all"
+                className="flex items-center gap-2 rounded-full border bg-blue-950/30 px-3.5 py-2 text-xs font-semibold text-white hover:bg-blue-900/40 active:scale-95 transition-all"
+                style={{ borderColor: `${activeColor}33` }}
               >
-                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" style={{ color: activeColor }} fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
                 Add Files
@@ -343,19 +364,21 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
                 }}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-[10px] font-bold border transition-all active:scale-95 ${
                   autoScanEnabled
-                    ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-sm'
+                    ? 'shadow-sm'
                     : 'bg-white/5 text-white/50 border-white/10 hover:text-white'
                 }`}
+                style={autoScanEnabled ? { backgroundColor: `${activeColor}26`, color: activeColor, borderColor: `${activeColor}66` } : {}}
                 title="Automatically scan device music files every time Zenisai is opened"
               >
-                <span className={`w-1.5 h-1.5 rounded-full ${autoScanEnabled ? 'bg-blue-400 animate-pulse' : 'bg-white/30'}`} />
+                <span className={`w-1.5 h-1.5 rounded-full ${autoScanEnabled ? 'animate-pulse' : 'bg-white/30'}`} style={autoScanEnabled ? { backgroundColor: activeColor } : {}} />
                 Auto-Scan on Open: {autoScanEnabled ? 'ON' : 'OFF'}
               </button>
 
               {!permissionGranted && (
                 <button
                   onClick={() => setShowPermissionModal(true)}
-                  className="flex items-center gap-1.5 rounded-full bg-blue-600/20 border border-blue-500/40 px-3 py-2 text-xs font-semibold text-blue-300 hover:bg-blue-600/30 active:scale-95 transition-all"
+                  className="flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold hover:bg-opacity-30 active:scale-95 transition-all"
+                  style={{ backgroundColor: `${activeColor}26`, borderColor: `${activeColor}66`, color: activeColor }}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -383,17 +406,17 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
         {scanProgress && (
           <div className="mt-4 pt-4 border-t border-blue-500/20 space-y-1.5 animate-in fade-in duration-200">
             <div className="flex justify-between text-xs text-white/80">
-              <span className="truncate max-w-[70%] font-semibold text-blue-300">
+              <span className="truncate max-w-[70%] font-semibold" style={{ color: activeColor }}>
                 Parsing: {scanProgress.currentTitle}
               </span>
-              <span className="text-blue-400 font-bold">{scanProgress.processed} / {scanProgress.total}</span>
+              <span className="font-bold" style={{ color: activeColor }}>{scanProgress.processed} / {scanProgress.total}</span>
             </div>
             <div className="w-full bg-white/10 rounded-full h-1.5 overflow-hidden">
               <div
                 className="h-full transition-all duration-200 rounded-full"
                 style={{
                   width: `${(scanProgress.processed / scanProgress.total) * 100}%`,
-                  backgroundColor: dominantColor || '#3b82f6'
+                  backgroundColor: activeColor
                 }}
               />
             </div>
@@ -404,8 +427,14 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
       {/* Permission Modal */}
       {showPermissionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="w-full max-w-sm rounded-[24px] border border-blue-500/30 bg-[#070e1f] p-6 shadow-2xl space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+          <div 
+            className="w-full max-w-sm rounded-[24px] border bg-[#070e1f] p-6 shadow-2xl space-y-4"
+            style={{ borderColor: `${activeColor}4D` }}
+          >
+            <div 
+              className="w-12 h-12 rounded-2xl flex items-center justify-center"
+              style={{ backgroundColor: `${activeColor}26`, color: activeColor }}
+            >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
@@ -425,8 +454,8 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
               </button>
               <button
                 onClick={handleGrantPermission}
-                style={{ backgroundColor: dominantColor || '#2563eb' }}
-                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg shadow-blue-500/30 hover:brightness-110"
+                style={{ backgroundColor: activeColor }}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white shadow-lg hover:brightness-110"
               >
                 Allow & Scan
               </button>
@@ -439,10 +468,10 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
       <div className="flex border-b border-blue-500/15 overflow-x-auto no-scrollbar gap-2 pb-2">
         <button
           onClick={() => { setActiveSubTab('tracks'); setSelectedArtist(null); setSelectedAlbum(null); }}
-          style={activeSubTab === 'tracks' && !selectedArtist && !selectedAlbum ? { backgroundColor: dominantColor || '#2563eb' } : {}}
+          style={activeSubTab === 'tracks' && !selectedArtist && !selectedAlbum ? { backgroundColor: activeColor } : {}}
           className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'tracks' && !selectedArtist && !selectedAlbum
-              ? 'text-white shadow-md shadow-blue-500/25'
+              ? 'text-white shadow-md'
               : 'bg-white/5 text-white/60 hover:text-white'
           }`}
         >
@@ -451,10 +480,10 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
         <button
           onClick={() => { setActiveSubTab('artists'); setSelectedAlbum(null); }}
-          style={activeSubTab === 'artists' || selectedArtist ? { backgroundColor: dominantColor || '#2563eb' } : {}}
+          style={activeSubTab === 'artists' || selectedArtist ? { backgroundColor: activeColor } : {}}
           className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'artists' || selectedArtist
-              ? 'text-white shadow-md shadow-blue-500/25'
+              ? 'text-white shadow-md'
               : 'bg-white/5 text-white/60 hover:text-white'
           }`}
         >
@@ -463,10 +492,10 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
         <button
           onClick={() => { setActiveSubTab('albums'); setSelectedArtist(null); }}
-          style={activeSubTab === 'albums' || selectedAlbum ? { backgroundColor: dominantColor || '#2563eb' } : {}}
+          style={activeSubTab === 'albums' || selectedAlbum ? { backgroundColor: activeColor } : {}}
           className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'albums' || selectedAlbum
-              ? 'text-white shadow-md shadow-blue-500/25'
+              ? 'text-white shadow-md'
               : 'bg-white/5 text-white/60 hover:text-white'
           }`}
         >
@@ -475,10 +504,10 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
         <button
           onClick={() => { setActiveSubTab('playlists'); setSelectedArtist(null); setSelectedAlbum(null); }}
-          style={activeSubTab === 'playlists' ? { backgroundColor: dominantColor || '#2563eb' } : {}}
+          style={activeSubTab === 'playlists' ? { backgroundColor: activeColor } : {}}
           className={`px-4 py-2 rounded-full text-xs font-bold transition-all shrink-0 ${
             activeSubTab === 'playlists'
-              ? 'text-white shadow-md shadow-blue-500/25'
+              ? 'text-white shadow-md'
               : 'bg-white/5 text-white/60 hover:text-white'
           }`}
         >
@@ -491,7 +520,8 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
         <div className="flex items-center gap-2 text-xs">
           <button
             onClick={() => { setSelectedArtist(null); setSelectedAlbum(null); }}
-            className="text-blue-400 font-bold hover:underline flex items-center gap-1"
+            className="font-bold hover:underline flex items-center gap-1"
+            style={{ color: activeColor }}
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
@@ -515,7 +545,8 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Search local tracks, artists, albums..."
-              className="w-full bg-white/[0.04] border border-blue-500/20 rounded-xl py-2 pl-10 pr-4 text-xs font-medium text-white placeholder-white/40 outline-none focus:border-blue-400 transition-colors"
+              className="w-full bg-white/[0.04] border rounded-xl py-2 pl-10 pr-4 text-xs font-medium text-white placeholder-white/40 outline-none transition-colors"
+              style={{ borderColor: `${activeColor}33` }}
             />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white">
@@ -530,7 +561,8 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value as any)}
-              className="bg-[#070e1f] border border-blue-500/20 rounded-xl px-3 py-2 text-xs font-medium text-white/80 outline-none focus:border-blue-400 cursor-pointer"
+              className="bg-[#070e1f] border rounded-xl px-3 py-2 text-xs font-medium text-white/85 outline-none cursor-pointer"
+              style={{ borderColor: `${activeColor}33` }}
             >
               <option value="title" className="bg-[#070e1f] text-white">Title (A-Z)</option>
               <option value="artist" className="bg-[#070e1f] text-white">Artist (A-Z)</option>
@@ -542,7 +574,8 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
               <>
                 <button
                   onClick={() => onPlay(processedTracks[0], processedTracks)}
-                  className="flex items-center gap-1.5 rounded-xl bg-blue-600/20 border border-blue-500/40 px-3 py-2 text-xs font-bold text-blue-300 hover:bg-blue-600/30 active:scale-95 transition-all shadow-sm"
+                  className="flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold hover:bg-opacity-30 active:scale-95 transition-all shadow-sm"
+                  style={{ backgroundColor: `${activeColor}26`, borderColor: `${activeColor}66`, color: activeColor }}
                   title="Play all filtered tracks"
                 >
                   <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -573,15 +606,16 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
                 onClick={() => onPlay(song, processedTracks)}
                 className={`flex items-center gap-3.5 p-3 rounded-[20px] border transition-all group cursor-pointer active:scale-[0.99] ${
                   isCurrentPlaying
-                    ? 'bg-blue-600/20 border-blue-500/50 shadow-lg shadow-blue-500/15'
+                    ? 'shadow-lg'
                     : 'bg-[#070e1f]/60 hover:bg-[#070e1f] border-blue-500/10 hover:border-blue-500/25'
                 }`}
+                style={isCurrentPlaying ? { backgroundColor: `${activeColor}26`, borderColor: `${activeColor}80` } : {}}
               >
                 <span className="text-xs font-bold text-white/40 w-5 text-center shrink-0">
                   {isCurrentPlaying && isPlaying ? (
                     <span
                       className="inline-block w-2.5 h-2.5 rounded-full animate-ping"
-                      style={{ backgroundColor: dominantColor || '#3b82f6' }}
+                      style={{ backgroundColor: activeColor }}
                     />
                   ) : (
                     idx + 1
@@ -606,14 +640,17 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
                   <div className="flex items-center gap-1.5">
                     <p
                       className={`text-sm font-bold truncate transition-colors ${
-                        isCurrentPlaying ? 'text-blue-300' : 'text-white group-hover:text-blue-300'
+                        isCurrentPlaying ? '' : 'text-white group-hover:text-blue-300'
                       }`}
-                      style={isCurrentPlaying && dominantColor ? { color: dominantColor } : {}}
+                      style={isCurrentPlaying ? { color: activeColor } : {}}
                     >
                       {song.title}
                     </p>
                     {song.embeddedLyrics && (
-                      <span className="shrink-0 text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                      <span 
+                        className="shrink-0 text-[8px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded border"
+                        style={{ backgroundColor: `${activeColor}26`, color: activeColor, borderColor: `${activeColor}4D` }}
+                      >
                         Lyrics
                       </span>
                     )}
@@ -639,6 +676,7 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
                     onClick={() => onDownload(song)}
                     title="Export / Download with metadata"
                     className="p-2 text-white/30 hover:text-blue-400 transition-colors"
+                    style={{ '--hover-color': activeColor } as any}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3"/></svg>
                   </button>
@@ -715,7 +753,7 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
                 />
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white">
                   <div
-                    style={{ backgroundColor: dominantColor || '#2563eb' }}
+                    style={{ backgroundColor: activeColor }}
                     className="w-10 h-10 rounded-full text-white flex items-center justify-center shadow-lg"
                   >
                     <svg className="w-5 h-5 fill-current ml-0.5" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
@@ -756,13 +794,14 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
               value={newPlaylistName}
               onChange={e => setNewPlaylistName(e.target.value)}
               placeholder="Name a new device playlist..."
-              className="min-w-0 flex-1 rounded-[16px] border border-blue-500/20 bg-[#070e1f] px-4 py-3 text-xs sm:text-sm text-white placeholder-white/40 outline-none focus:border-blue-400 transition-colors"
+              className="min-w-0 flex-1 rounded-[16px] border bg-[#070e1f] px-4 py-3 text-xs sm:text-sm text-white placeholder-white/40 outline-none transition-colors"
+              style={{ borderColor: `${activeColor}33` }}
             />
             <button
               type="submit"
               disabled={!newPlaylistName.trim()}
-              style={{ backgroundColor: dominantColor || '#2563eb' }}
-              className="rounded-[16px] px-5 text-xs sm:text-sm font-bold text-white disabled:opacity-40 hover:brightness-110 active:scale-95 transition-all shadow-md shadow-blue-500/25"
+              style={{ backgroundColor: activeColor }}
+              className="rounded-[16px] px-5 text-xs sm:text-sm font-bold text-white disabled:opacity-40 hover:brightness-110 active:scale-95 transition-all shadow-md"
             >
               Create
             </button>
@@ -770,7 +809,11 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             {devicePlaylists.map(pl => (
-              <div key={pl.id} className="group relative rounded-[20px] bg-[#070e1f] border border-blue-500/20 p-3 flex flex-col justify-between">
+              <div 
+                key={pl.id} 
+                className="group relative rounded-[20px] bg-[#070e1f] border p-3 flex flex-col justify-between"
+                style={{ borderColor: `${activeColor}33` }}
+              >
                 <div>
                   <h4 className="text-sm font-bold text-white truncate">{pl.name}</h4>
                   <p className="text-xs text-white/50 mt-1">{pl.songs.length} Tracks</p>
@@ -779,7 +822,8 @@ export const DeviceMusicView: React.FC<DeviceMusicViewProps> = ({
                   {pl.songs.length > 0 && (
                     <button
                       onClick={() => onPlay(pl.songs[0], pl.songs)}
-                      className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-300 text-xs font-bold hover:bg-blue-600/30"
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-opacity-30 transition-colors"
+                      style={{ backgroundColor: `${activeColor}26`, color: activeColor }}
                     >
                       Play
                     </button>
