@@ -164,9 +164,9 @@ class ThemeService {
     let surface = modeConfig.surface;
 
     if (this.config.mode === 'ambient') {
-      // Dynamic dark mix with current dominant color
-      bg = `color-mix(in srgb, #02040a 82%, ${effAccent} 18%)`;
-      surface = `color-mix(in srgb, #080d1a 80%, ${effAccent} 20%)`;
+      // Dynamic dark mix with current dominant color, reflecting song art vibe dynamically
+      bg = `color-mix(in srgb, #02040a 78%, ${effAccent} 22%)`;
+      surface = `color-mix(in srgb, #080d1a 75%, ${effAccent} 25%)`;
     }
 
     // Set CSS custom properties with safe RGBA values
@@ -193,10 +193,21 @@ class ThemeService {
       body.classList.add('text-white');
     }
 
-    // Sync meta theme-color
+    // Sync meta theme-color dynamically for mobile status/notification bars
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
-      metaThemeColor.setAttribute('content', isLight ? '#ffffff' : (this.config.mode === 'oled' ? '#000000' : bg));
+      let resolvedThemeColor = bg;
+      if (isLight) {
+        resolvedThemeColor = '#ffffff';
+      } else if (this.config.mode === 'oled') {
+        resolvedThemeColor = '#000000';
+      } else if (this.config.mode === 'ambient') {
+        // Dynamically compute a deep dark ambient header color from current active accent/song color without forcing blue
+        resolvedThemeColor = '#030711';
+      } else {
+        resolvedThemeColor = bg;
+      }
+      metaThemeColor.setAttribute('content', resolvedThemeColor);
     }
   }
 }
