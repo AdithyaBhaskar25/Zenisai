@@ -43,12 +43,14 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   };
 
   const isLightMode = config.mode === 'crisp_white';
-  const modalBg = isLightMode ? 'bg-white text-zinc-900 border-zinc-300' : 'bg-[var(--color-surface)] text-white border-white/10';
-  const textPrimary = isLightMode ? 'text-zinc-900' : 'text-white';
-  const textSecondary = isLightMode ? 'text-zinc-600' : 'text-white/60';
-  const textMuted = isLightMode ? 'text-zinc-500' : 'text-white/45';
-  const cardBg = isLightMode ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]';
-  const closeBtnBg = isLightMode ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700' : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white';
+
+  // Strict color assignments for light vs dark mode to prevent invisible white-on-white text
+  const modalBg = isLightMode ? '!bg-white !text-zinc-900 border-zinc-300' : 'bg-[var(--color-surface)] text-white border-white/10';
+  const textPrimary = isLightMode ? '!text-zinc-900 font-bold' : 'text-white font-bold';
+  const textSecondary = isLightMode ? '!text-zinc-600' : 'text-white/60';
+  const textMuted = isLightMode ? '!text-zinc-500' : 'text-white/45';
+  const cardBg = isLightMode ? '!bg-zinc-100 border-zinc-300 hover:!bg-zinc-200' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]';
+  const closeBtnBg = isLightMode ? '!bg-zinc-200 hover:!bg-zinc-300 !text-zinc-800' : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white';
 
   return (
     <div 
@@ -78,7 +80,7 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               </svg>
             </div>
             <div>
-              <h2 className={`text-base sm:text-lg font-bold tracking-tight ${textPrimary}`}>Theme & Visual Experience</h2>
+              <h2 className={`text-base sm:text-lg tracking-tight ${textPrimary}`}>Theme & Visual Experience</h2>
               <p className={`text-[11px] ${textSecondary}`}>Personalize themes, accents, and visualizers</p>
             </div>
           </div>
@@ -94,14 +96,14 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         </div>
 
         {/* Live Preview Card */}
-        <div className={`relative mt-4 p-3.5 rounded-2xl border shadow-inner overflow-hidden flex items-center gap-3 ${isLightMode ? 'bg-zinc-50 border-zinc-200' : 'bg-black/40 border-white/25'}`} style={{ borderColor: colorWithAlpha(effectiveAccent, 0.25) }}>
+        <div className={`relative mt-4 p-3.5 rounded-2xl border shadow-inner overflow-hidden flex items-center gap-3 ${isLightMode ? '!bg-zinc-100 border-zinc-300' : 'bg-black/40 border-white/25'}`} style={{ borderColor: colorWithAlpha(effectiveAccent, 0.25) }}>
           <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border relative" style={{ borderColor: colorWithAlpha(effectiveAccent, 0.4) }}>
             <img src="https://picsum.photos/seed/zenisai_preview/200/200" alt="" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/25" />
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-[9px] font-bold uppercase tracking-wider block leading-none mb-0.5" style={{ color: effectiveAccent }}>Live Style Preview</span>
-            <p className={`text-xs font-bold truncate ${textPrimary}`}>Soundtrack of the Universe</p>
+            <p className={`text-xs truncate ${textPrimary}`}>Soundtrack of the Universe</p>
             <div className="h-5 w-full mt-1">
               <Visualizer analyser={null} color={effectiveAccent} isPlaying={true} style={config.visualizerStyle} />
             </div>
@@ -124,20 +126,20 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       : cardBg
                   }`}
                   style={isSelected ? { 
-                    backgroundColor: isLightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', 
+                    backgroundColor: isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)', 
                     borderColor: effectiveAccent,
                     boxShadow: `0 4px 20px ${colorWithAlpha(effectiveAccent, 0.25)}` 
                   } : {}}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className={`text-xs font-bold truncate ${textPrimary}`}>{info.name}</span>
+                    <span className={`text-xs truncate ${textPrimary}`}>{info.name}</span>
                     {isSelected && (
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: effectiveAccent }} />
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 mt-2">
-                    <div className="w-4 h-4 rounded-full border border-zinc-400/40 shadow-sm" style={{ backgroundColor: info.bg }} />
-                    <div className="w-4 h-4 rounded-full border border-zinc-400/40 shadow-sm" style={{ backgroundColor: info.surface }} />
+                    <div className="w-4 h-4 rounded-full border border-zinc-400 shadow-sm" style={{ backgroundColor: info.bg }} />
+                    <div className="w-4 h-4 rounded-full border border-zinc-400 shadow-sm" style={{ backgroundColor: info.surface }} />
                   </div>
                   <p className={`text-[10px] mt-1.5 line-clamp-1 ${textMuted}`}>{info.desc}</p>
                 </button>
@@ -161,7 +163,7 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   key={key}
                   onClick={() => handleSelectAccent(key)}
                   className={`p-2.5 rounded-2xl flex flex-col items-center gap-1.5 border transition-all active:scale-90 ${
-                    isSelected ? 'ring-2 ring-zinc-400/80 scale-105 shadow-lg' : cardBg
+                    isSelected ? 'ring-2 ring-zinc-500 scale-105 shadow-lg' : cardBg
                   }`}
                   style={isSelected ? { borderColor: displayColor } : {}}
                   title={item.name}
@@ -206,12 +208,12 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       : cardBg
                   }`}
                   style={isSelected ? { 
-                    backgroundColor: isLightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', 
+                    backgroundColor: isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)', 
                     borderColor: effectiveAccent,
                     boxShadow: `0 4px 15px ${colorWithAlpha(effectiveAccent, 0.25)}` 
                   } : {}}
                 >
-                  <span className={`text-xs font-bold block ${textPrimary}`}>{vis.name}</span>
+                  <span className={`text-xs block ${textPrimary}`}>{vis.name}</span>
                   <span className={`text-[10px] block mt-0.5 ${textMuted}`}>{vis.desc}</span>
                   <div className="h-6 w-full mt-2 rounded-lg bg-black/30 p-1">
                     <Visualizer analyser={null} color={effectiveAccent} isPlaying={true} style={vis.id as VisualizerStyle} />
@@ -226,7 +228,7 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         <div className="mt-5 pt-2">
           <button
             onClick={onClose}
-            className={`w-full py-3 rounded-xl font-bold text-xs sm:text-sm shadow-xl hover:brightness-110 active:scale-98 transition-all ${isLightMode ? 'text-white' : 'text-[#06101e]'}`}
+            className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm text-white shadow-xl hover:brightness-110 active:scale-98 transition-all"
             style={{ backgroundColor: effectiveAccent }}
           >
             Done & Save Preferences
