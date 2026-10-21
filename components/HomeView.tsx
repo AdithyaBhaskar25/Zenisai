@@ -14,10 +14,13 @@ interface HomeViewProps {
   isFavorite: (songId: string) => boolean;
   onToggleFavorite: (song: Song) => void;
   onTogglePlay?: () => void;
+  onOpenThemeSettings?: () => void;
+  onOpenEqualizer?: () => void;
 }
 
 const HomeView: React.FC<HomeViewProps> = ({ 
-  onPlay, currentSong, isPlaying, onAddClick, onDownload, onShare, progress, isFavorite, onToggleFavorite, onTogglePlay 
+  onPlay, currentSong, isPlaying, onAddClick, onDownload, onShare, progress, isFavorite, onToggleFavorite, onTogglePlay,
+  onOpenThemeSettings, onOpenEqualizer
 }) => {
   const [tamilHits, setTamilHits] = useState<Song[]>([]);
   const [englishHits, setEnglishHits] = useState<Song[]>([]);
@@ -120,18 +123,44 @@ const HomeView: React.FC<HomeViewProps> = ({
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">Sound for your day</p>
           <h1 className="mt-0.5 sm:mt-1 text-2xl sm:text-3xl font-bold">Zenisai</h1>
         </div>
-        {currentSong && (
-          <button 
-            onClick={scrollToCurrentReel}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-semibold hover:bg-accent/25 active:scale-95 transition-all shadow-sm"
-          >
-            <span className="flex h-2 w-2 relative">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75 ${isPlaying ? 'block' : 'hidden'}`}></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-            </span>
-            <span className="max-w-[110px] truncate">{currentSong.title}</span>
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {onOpenEqualizer && (
+            <button 
+              onClick={onOpenEqualizer} 
+              title="Equalizer & Sound Stage" 
+              aria-label="Equalizer"
+              className="p-2 rounded-full border border-white/10 bg-white/5 text-white/70 hover:text-accent hover:bg-white/10 active:scale-90 transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+            </button>
+          )}
+          {onOpenThemeSettings && (
+            <button 
+              onClick={onOpenThemeSettings} 
+              title="Theme & Colors" 
+              aria-label="Theme settings"
+              className="p-2 rounded-full border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/10 active:scale-90 transition-all"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014 4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+              </svg>
+            </button>
+          )}
+          {currentSong && (
+            <button 
+              onClick={scrollToCurrentReel}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-semibold hover:bg-accent/25 active:scale-95 transition-all shadow-sm"
+            >
+              <span className="flex h-2 w-2 relative">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75 ${isPlaying ? 'block' : 'hidden'}`}></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+              </span>
+              <span className="max-w-[100px] truncate">{currentSong.title}</span>
+            </button>
+          )}
+        </div>
       </header>
 
       {/* Mode selection tabs: Latest & For You */}

@@ -24,11 +24,13 @@ interface FloatingHubProps {
   onToggleShuffle: () => void;
   repeatMode: 'off' | 'one' | 'all';
   onToggleRepeat: () => void;
+  onOpenEqualizer?: () => void;
+  onOpenThemeSettings?: () => void;
 }
 
 const FloatingHub: React.FC<FloatingHubProps> = ({ 
   song, isPlaying, onToggle, onNext, onPrev, activeView, setActiveView, progress, duration, lyrics, plainLyrics, onOpenPlayer, analyser, dominantColor, onOpenChat,
-  isFavorite, onToggleFavorite, isShuffle, onToggleShuffle, repeatMode, onToggleRepeat
+  isFavorite, onToggleFavorite, isShuffle, onToggleShuffle, repeatMode, onToggleRepeat, onOpenEqualizer, onOpenThemeSettings
 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const touchStartYRef = useRef<number | null>(null);
@@ -198,11 +200,21 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
 
             {/* Bottom Row: Controls */}
             <div className="flex items-center justify-between px-1 gap-2 pt-0.5">
-              <div className="flex items-center gap-2">
-                <button onClick={onOpenChat} aria-label="Open Zenisai assistant" className="p-2 rounded-full bg-white/5 text-white/60 border border-white/5 active:scale-90 transition-all hover:text-accent hover:bg-white/10">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button onClick={onOpenChat} aria-label="Open Zenisai assistant" title="AI Assistant" className="p-2 rounded-full bg-white/5 text-white/60 border border-white/5 active:scale-90 transition-all hover:text-accent hover:bg-white/10">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
                 </button>
-                <button onClick={onToggleShuffle} className={`p-2 rounded-full transition-all active:scale-90 ${isShuffle ? 'bg-accent/15 text-accent shadow-accent' : 'text-white/35 hover:text-white/60'}`}>
+                {onOpenEqualizer && (
+                  <button onClick={onOpenEqualizer} aria-label="Equalizer" title="Equalizer & Sound Stage" className="p-2 rounded-full bg-white/5 text-white/60 border border-white/5 active:scale-90 transition-all hover:text-accent hover:bg-white/10">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                  </button>
+                )}
+                {onOpenThemeSettings && (
+                  <button onClick={onOpenThemeSettings} aria-label="Theme settings" title="Themes & Colors" className="p-2 rounded-full bg-white/5 text-white/60 border border-white/5 active:scale-90 transition-all hover:text-accent hover:bg-white/10">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014 4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
+                  </button>
+                )}
+                <button onClick={onToggleShuffle} title={isShuffle ? "Shuffle on" : "Shuffle off"} className={`p-2 rounded-full transition-all active:scale-90 ${isShuffle ? 'bg-accent/15 text-accent shadow-accent' : 'text-white/35 hover:text-white/60'}`}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
                 </button>
               </div>

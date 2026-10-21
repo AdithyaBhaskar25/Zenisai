@@ -5,12 +5,16 @@ import { saavnService } from './services/saavnService';
 import { lyricsService, ParsedLyricLine, parseLrcText } from './services/lyricsService';
 import { id3Service } from './services/id3Service';
 import { deviceMusicService } from './services/deviceMusicService';
+import { equalizerService } from './services/equalizerService';
+import { themeService } from './services/themeService';
 import PlayerFull from './components/PlayerFull';
 import FloatingHub from './components/FloatingHub';
 import HomeView from './components/HomeView';
 import SearchView from './components/SearchView';
 import LibraryView from './components/LibraryView';
 import ChatBotView from './components/ChatBotView';
+import EqualizerModal from './components/EqualizerModal';
+import ThemeSettingsModal from './components/ThemeSettingsModal';
 
 const App: React.FC = () => {
   const [currentSong, setCurrentSong] = useState<Song | null>(() => {
@@ -23,6 +27,8 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<AppView>('home');
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isEqualizerOpen, setIsEqualizerOpen] = useState(false);
+  const [isThemeSettingsOpen, setIsThemeSettingsOpen] = useState(false);
   const [queue, setQueue] = useState<Song[]>(() => {
     try {
       const saved = localStorage.getItem('zenisai_queue');
@@ -56,6 +62,7 @@ const App: React.FC = () => {
   const [currentParsedLyrics, setCurrentParsedLyrics] = useState<ParsedLyricLine[]>([]);
   const [currentPlainLyrics, setCurrentPlainLyrics] = useState<string[]>([]);
   const [dominantColor, setDominantColor] = useState('#3b82f6');
+  const [themeConfig, setThemeConfig] = useState(() => themeService.getConfig());
   const [songToAddToPlaylist, setSongToAddToPlaylist] = useState<Song | null>(null);
   const [downloadToast, setDownloadToast] = useState<{ message: string; isError?: boolean } | null>(null);
 
@@ -101,31 +108,60 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Theme synchronization with DOM and global CSS variables
+  useEffect(() => {
+    themeService.applyToDOM();
+    return themeService.subscribe((_conf, effAccent) => {
+      setDominantColor(effAccent);
+    });
+  }, []);
+
   // Native Hardware & Gesture Back Button Handling (Spotify/Apple Music-grade hierarchy)
   const handleAppBack = useCallback((): boolean => {
+    // 1. Equalizer modal
+    if (isEqualizerOpen) {
+      setIsEqualizerOpen(false);
+      return true;
+    }
+    // 2. Theme Settings modal
+    if (isThemeSettingsOpen) {
+      setIsThemeSettingsOpen(false);
+      return true;
+    }
+    // 3. Add to Playlist modal
     if (songToAddToPlaylist) {
       setSongToAddToPlaylist(null);
       return true;
     }
+    // 4. AI Assistant modal
     if (isChatOpen) {
       setIsChatOpen(false);
       return true;
     }
+    // 5. Full Player modal
     if (isPlayerOpen) {
       setIsPlayerOpen(false);
       return true;
     }
+    // 6. Navigation: return to Explore ('home') tab
     if (activeView !== 'home') {
       setActiveView('home');
       return true;
     }
+    // Root home with nothing open: exit on Capacitor Android
     try {
       CapApp.exitApp();
     } catch {}
     return false;
-  }, [songToAddToPlaylist, isChatOpen, isPlayerOpen, activeView]);
+  }, [isEqualizerOpen, isThemeSettingsOpen, songToAddToPlaylist, isChatOpen, isPlayerOpen, activeView]);
 
+  // Synchronized browser history stack for Android gestures & PWA back button
   useEffect(() => {
+    // Initialize base history state so there is always a barrier entry before the webapp exits
+    if (!window.history.state || !window.history.state.zenisaiRoot) {
+      window.history.replaceState({ zenisaiRoot: true, page: 'home' }, '');
+    }
+
     let removeListener: (() => void) | undefined;
     try {
       CapApp.addListener('backButton', () => {
@@ -135,11 +171,11 @@ const App: React.FC = () => {
       });
     } catch {}
 
-    window.history.replaceState({ page: 'zenisai_app' }, '');
     const handlePopState = () => {
       const handled = handleAppBack();
       if (handled) {
-        window.history.pushState({ page: 'zenisai_app' }, '');
+        // Modal or view was closed: push a barrier so the user remains protected inside the app
+        window.history.pushState({ zenisaiRoot: true, page: 'home' }, '');
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -148,6 +184,96 @@ const App: React.FC = () => {
       if (removeListener) removeListener();
       window.removeEventListener('popstate', handlePopState);
     };
+  }, [handleAppBack]);
+
+  // Push history entry whenever any modal opens so the Android hardware/gesture back will pop it cleanly
+  useEffect(() => {
+    if (isEqualizerOpen) window.history.pushState({ modal: 'equalizer' }, '');
+  }, [isEqualizerOpen]);
+
+  useEffect(() => {
+    if (isThemeSettingsOpen) window.history.pushState({ modal: 'theme' }, '');
+  }, [isThemeSettingsOpen]);
+
+  useEffect(() => {
+    if (isChatOpen) window.history.pushState({ modal: 'chat' }, '');
+  }, [isChatOpen]);
+
+  useEffect(() => {
+    if (isPlayerOpen) window.history.pushState({ modal: 'player' }, '');
+  }, [isPlayerOpen]);
+
+  useEffect(() => {
+    if (songToAddToPlaylist) window.history.pushState({ modal: 'playlist' }, '');
+  }, [songToAddToPlaylist]);
+
+  useEffect(() => {
+    if (activeView !== 'home') window.history.pushState({ view: activeView }, '');
+  }, [activeView]);
+
+  // Desktop & TV Keyboard Shortcuts & Navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if user is typing in an input or textarea
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          togglePlay();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          if (e.shiftKey) {
+            handleNext();
+          } else if (audioRef.current) {
+            audioRef.current.currentTime = Math.min((audioRef.current.duration || 0), audioRef.current.currentTime + 5);
+          }
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (e.shiftKey) {
+            handlePrev();
+          } else if (audioRef.current) {
+            audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5);
+          }
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          if (audioRef.current) {
+            audioRef.current.volume = Math.min(1, audioRef.current.volume + 0.1);
+          }
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          if (audioRef.current) {
+            audioRef.current.volume = Math.max(0, audioRef.current.volume - 0.1);
+          }
+          break;
+        case 'KeyM':
+          if (audioRef.current) {
+            audioRef.current.muted = !audioRef.current.muted;
+          }
+          break;
+        case 'KeyE':
+          setIsEqualizerOpen(prev => !prev);
+          break;
+        case 'KeyT':
+          setIsThemeSettingsOpen(prev => !prev);
+          break;
+        case 'KeyC':
+          setIsChatOpen(prev => !prev);
+          break;
+        case 'Escape':
+          handleAppBack();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleAppBack]);
 
   // Enhanced Background Audio Keep-Alive & Wake Lock to stop OS from suddenly killing playback on screen lock
@@ -336,6 +462,10 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    return themeService.subscribe(setThemeConfig);
+  }, []);
+
+  useEffect(() => {
     const restorePlayback = async () => {
       const savedSongStr = localStorage.getItem('zenisai_current_song');
       if (!savedSongStr) return;
@@ -482,15 +612,11 @@ const App: React.FC = () => {
           const tintColor = `rgba(${vividRed},${vividGreen},${vividBlue},0.12)`;
           
           setDominantColor(color);
-          document.documentElement.style.setProperty('--color-primary', color);
-          document.documentElement.style.setProperty('--color-glow', glowColor);
-          document.documentElement.style.setProperty('--color-bg', bgColor);
-          document.documentElement.style.setProperty('--color-surface', surfaceColor);
-          document.documentElement.style.setProperty('--color-tint', tintColor);
-          document.querySelector('meta[name="theme-color"]')?.setAttribute('content', bgColor);
+          themeService.setSongDominantColor(color);
         }
       } catch (e) { 
           setDominantColor('#3b82f6');
+          themeService.setSongDominantColor('#3b82f6');
       }
     };
   };
@@ -561,10 +687,9 @@ const App: React.FC = () => {
         analyserRef.current = ctx.createAnalyser();
         analyserRef.current.fftSize = 64;
         const source = ctx.createMediaElementSource(audioRef.current);
-        source.connect(analyserRef.current);
-        analyserRef.current.connect(ctx.destination);
+        equalizerService.connectNodes(source, ctx, analyserRef.current);
       } catch (e) {
-        console.warn('Analyser setup notice:', e);
+        console.warn('Analyser & Equalizer setup notice:', e);
       }
     }
 
@@ -1028,6 +1153,8 @@ const App: React.FC = () => {
               isFavorite={songId => playlists.find(p => p.id === 'favs')?.songs.some(song => song.id === songId) || false}
               onToggleFavorite={toggleFavorite}
               onTogglePlay={togglePlay}
+              onOpenEqualizer={() => setIsEqualizerOpen(true)}
+              onOpenThemeSettings={() => setIsThemeSettingsOpen(true)}
             />
           </div>
         )}
@@ -1082,6 +1209,8 @@ const App: React.FC = () => {
         onToggleRepeat={toggleRepeat}
         onNext={handleNext} 
         onPrev={handlePrev}
+        onOpenEqualizer={() => setIsEqualizerOpen(true)}
+        onOpenThemeSettings={() => setIsThemeSettingsOpen(true)}
       />
 
       {isPlayerOpen && currentSong && (
@@ -1120,6 +1249,25 @@ const App: React.FC = () => {
           repeatMode={repeatMode} 
           onToggleRepeat={toggleRepeat}
           onShowPlaylistModal={setSongToAddToPlaylist}
+          onOpenEqualizer={() => setIsEqualizerOpen(true)}
+          onOpenThemeSettings={() => setIsThemeSettingsOpen(true)}
+          visualizerStyle={themeConfig.visualizerStyle}
+        />
+      )}
+
+      {isEqualizerOpen && (
+        <EqualizerModal
+          onClose={() => setIsEqualizerOpen(false)}
+          dominantColor={dominantColor}
+          analyser={analyserRef.current}
+          isPlaying={isPlaying}
+        />
+      )}
+
+      {isThemeSettingsOpen && (
+        <ThemeSettingsModal
+          onClose={() => setIsThemeSettingsOpen(false)}
+          currentSongDominantColor={dominantColor}
         />
       )}
 
@@ -1128,6 +1276,17 @@ const App: React.FC = () => {
           onClose={() => setIsChatOpen(false)} 
           dominantColor={dominantColor} 
           currentSong={currentSong}
+          analyser={analyserRef.current}
+          isPlaying={isPlaying}
+          queue={queue}
+          playlists={playlists}
+          activeView={activeView}
+          setActiveView={setActiveView}
+          isShuffle={isShuffle}
+          repeatMode={repeatMode}
+          onOpenEqualizer={() => setIsEqualizerOpen(true)}
+          onOpenThemeSettings={() => setIsThemeSettingsOpen(true)}
+          onOpenPlayer={() => setIsPlayerOpen(true)}
           playbackControls={{ 
             toggle: togglePlay, 
             next: handleNext, 
@@ -1138,8 +1297,18 @@ const App: React.FC = () => {
             favoriteSong,
             addSongToPlaylist,
             removeFromFavorites: () => currentSong && removeFromFavorites(currentSong),
+            playFavorites: () => {
+              const favs = playlists.find(p => p.id === 'favs');
+              if (favs && favs.songs.length > 0) {
+                handlePlaySong(favs.songs[0], favs.songs);
+              }
+            },
             createPlaylist: (name: string) => createPlaylist(name),
-            clearQueue: () => setQueue([currentSong!])
+            clearQueue: () => {
+              if (currentSong) setQueue([currentSong]);
+            },
+            toggleShuffle: toggleShuffle,
+            setRepeatMode: (mode) => setRepeatMode(mode)
           }} 
         />
       )}

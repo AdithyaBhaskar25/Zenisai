@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Song, Playlist } from '../types';
 import { ParsedLyricLine, lyricsService } from '../services/lyricsService';
+import { colorWithAlpha } from '../services/colorUtils';
+import Visualizer from './Visualizer';
+import { themeService, VisualizerStyle } from '../services/themeService';
 
 interface PlayerFullProps {
   song: Song; isPlaying: boolean; onToggle: () => void; onNext: () => void; onPrev: () => void; onClose: () => void;
@@ -12,6 +15,9 @@ interface PlayerFullProps {
   onToggleShuffle: () => void; repeatMode: 'off' | 'one' | 'all'; onToggleRepeat: () => void; onShowPlaylistModal: (song: Song) => void;
   syncedLyricsList?: ParsedLyricLine[];
   plainLyricsList?: string[];
+  onOpenEqualizer?: () => void;
+  onOpenThemeSettings?: () => void;
+  visualizerStyle?: VisualizerStyle;
 }
 
 interface FeedActionProps {
@@ -40,10 +46,17 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   song, isPlaying, onToggle, onNext, onPrev, onClose, dominantColor, progress, duration, onSeek, analyser,
   sleepTimer, setSleepTimer, queue, onPlayFromQueue, lyrics: propLyrics, onRemoveFromQueue, onMoveQueueItem, 
   isFavorite, onToggleFavorite, onDownload, onShare, isShuffle, onToggleShuffle, repeatMode, onToggleRepeat, onShowPlaylistModal,
-  syncedLyricsList, plainLyricsList
+  syncedLyricsList, plainLyricsList, onOpenEqualizer, onOpenThemeSettings, visualizerStyle
 }) => {
   const [activeTab, setActiveTab] = useState<'player' | 'lyrics' | 'queue'>('player');
   const [showSleepTimerMenu, setShowSleepTimerMenu] = useState(false);
+  const [themeConfig, setThemeConfig] = useState(() => themeService.getConfig());
+
+  useEffect(() => {
+    return themeService.subscribe(setThemeConfig);
+  }, []);
+
+  const activeVisualizer = visualizerStyle || themeConfig.visualizerStyle || 'bars';
 
   // --- SYNCHRONIZED LYRICS ENGINE ---
   const [syncedLyrics, setSyncedLyrics] = useState<ParsedLyricLine[]>(() => syncedLyricsList || []);
@@ -52,7 +65,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
 
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
   const activeLyricRef = useRef<HTMLParagraphElement>(null);
-  const visualizerCanvasRef = useRef<HTMLCanvasElement>(null);
   const feedScrollRef = useRef<HTMLDivElement>(null);
   const feedScrollTimerRef = useRef<number | null>(null);
   
@@ -166,36 +178,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     }
   }, [currentLineIndex, activeTab]);
 
-  // Visualizer Canvas
-  useEffect(() => {
-    if (!analyser || !visualizerCanvasRef.current || !isPlaying) return;
-    const canvas = visualizerCanvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    let animationId: number;
-    const draw = () => {
-      animationId = requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(dataArray);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const barWidth = (canvas.width / bufferLength) * 2.2;
-      let x = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        const val = dataArray[i];
-        const barHeight = (val / 255) * canvas.height;
-        const grad = ctx.createLinearGradient(0, canvas.height, 0, canvas.height - barHeight);
-        grad.addColorStop(0, dominantColor.replace('rgb', 'rgba').replace(')', ', 0.1)'));
-        grad.addColorStop(1, dominantColor.replace('rgb', 'rgba').replace(')', `, ${0.4 + (val/255) * 0.6})`));
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-        x += barWidth + 1.5;
-      }
-    };
-    draw();
-    return () => cancelAnimationFrame(animationId);
-  }, [analyser, dominantColor, isPlaying]);
-
   // Swipe gestures for landscape or horizontal navigation
   const handleTouchStart = (e: React.TouchEvent) => { 
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
@@ -227,18 +209,44 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
       <div className="relative z-10 flex flex-col h-full max-w-5xl mx-auto w-full px-3 sm:px-6 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
         {/* Header */}
         <header className="flex items-center gap-2 mb-3 compact-landscape:mb-1 h-11 compact-landscape:h-8">
-          <button onClick={onClose} className="p-2 bg-white/5 rounded-full active:scale-90 transition-all hover:bg-white/10">
+          <button onClick={onClose} className="p-2 bg-white/5 rounded-full active:scale-90 transition-all hover:bg-white/10" aria-label="Minimize player">
             <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" /></svg>
           </button>
           <div className="flex-1 text-center min-w-0">
             <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-accent leading-none mb-0.5">Now playing</p>
             <p className="text-xs font-semibold text-white/85 truncate px-2">{song.title}</p>
           </div>
-          {activeTab === 'player' ? (
-            <span className="min-w-8 text-right text-[10px] font-semibold text-white/40">{queue.length || 1} tracks</span>
-          ) : (
-            <button onClick={() => setActiveTab('player')} className="rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-[9px] font-semibold text-white/80 hover:bg-white/10">Back to feed</button>
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {onOpenEqualizer && (
+              <button 
+                onClick={onOpenEqualizer} 
+                title="Equalizer & Sound Stage" 
+                aria-label="Equalizer"
+                className="p-2 rounded-full border border-white/10 bg-white/5 text-accent hover:bg-white/15 active:scale-90 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                </svg>
+              </button>
+            )}
+            {onOpenThemeSettings && (
+              <button 
+                onClick={onOpenThemeSettings} 
+                title="Theme & Visuals" 
+                aria-label="Theme settings"
+                className="p-2 rounded-full border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/15 active:scale-90 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014-4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                </svg>
+              </button>
+            )}
+            {activeTab === 'player' ? (
+              <span className="text-[10px] font-semibold text-white/40 pl-1">{queue.length || 1} tracks</span>
+            ) : (
+              <button onClick={() => setActiveTab('player')} className="rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-[9px] font-semibold text-white/80 hover:bg-white/10">Feed</button>
+            )}
+          </div>
         </header>
 
         {/* Main Feed / Content */}
@@ -280,7 +288,7 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                     <div className="pointer-events-none absolute bottom-3 sm:bottom-5 left-3 sm:left-6 z-10 max-w-[calc(100%-5rem)] compact-landscape:max-w-[calc(100%-7.5rem)]">
                       <div className="mb-2 compact-landscape:mb-1 min-h-8 compact-landscape:min-h-5">
                         {isCurrent && currentLineIndex >= 0 ? (
-                          <p className="text-base sm:text-lg compact-landscape:text-sm font-semibold leading-tight text-white drop-shadow-lg">
+                          <p className="text-base sm:text-lg compact-landscape:text-sm font-bold leading-tight text-accent drop-shadow-lg">
                             {syncedLyrics[currentLineIndex].text}
                           </p>
                         ) : isCurrent && plainLyrics.length > 0 ? (
@@ -302,6 +310,11 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                       <FeedAction label={isFavorite(feedSong.id) ? 'Saved' : 'Like'} active={isFavorite(feedSong.id)} onClick={() => onToggleFavorite(feedSong)}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill={isFavorite(feedSong.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" /></svg>
                       </FeedAction>
+                      {onOpenEqualizer && (
+                        <FeedAction label="Equalizer" active={true} onClick={onOpenEqualizer}>
+                          <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+                        </FeedAction>
+                      )}
                       <FeedAction label="Queue" onClick={() => setActiveTab('queue')}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h10m3-3 3 3-3 3" /></svg>
                       </FeedAction>
@@ -326,6 +339,11 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                           {repeatMode === 'one' && <span className="absolute -right-1 -top-1 grid h-3 w-3 place-items-center rounded-full bg-accent text-[7px] font-black text-[#06101e]">1</span>}
                         </span>
                       </FeedAction>
+                      {onOpenThemeSettings && (
+                        <FeedAction label="Themes" onClick={onOpenThemeSettings}>
+                          <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014 4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                        </FeedAction>
+                      )}
                       <FeedAction label="Share" onClick={() => onShare(feedSong)}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 10.7 6.8-4.4m-6.8 7 6.8 4.1" /></svg>
                       </FeedAction>
@@ -404,20 +422,31 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                     key={i} 
                     ref={i === currentLineIndex ? activeLyricRef : null}
                     onClick={() => onSeek(l.time)} 
-                    className={`text-lg sm:text-2xl font-bold cursor-pointer transition-all duration-500 ${i === currentLineIndex ? 'text-white scale-105 drop-shadow-lg' : 'text-white/25 hover:text-white/60'}`}
+                    className={`text-lg sm:text-2xl font-bold cursor-pointer transition-all duration-500 ${
+                      i === currentLineIndex 
+                        ? 'text-accent scale-105 drop-shadow-lg font-extrabold' 
+                        : 'text-white/40 hover:text-white/80'
+                    }`}
                    >
                     {l.text}
                    </p>
-                 )) : plainLyrics.map((l, i) => <p key={i} className="text-base sm:text-lg font-medium text-white/40 py-1">{l}</p>)}
+                 )) : plainLyrics.map((l, i) => <p key={i} className="text-base sm:text-lg font-medium text-white/50 py-1">{l}</p>)}
                </div>
              </div>
           )}
         </main>
 
-        {/* Footer Scrub Bar & Visualizer */}
-        <footer className="mt-2.5 rounded-[18px] border border-white/10 bg-[var(--color-surface)] px-3 py-1.5 backdrop-blur-xl shadow-lg">
-          <div className="relative h-6 sm:h-7 w-full overflow-hidden rounded-full bg-white/5">
-            <canvas ref={visualizerCanvasRef} width={400} height={28} className="absolute inset-0 h-full w-full opacity-70 pointer-events-none" />
+        {/* Footer Scrub Bar & Equalizer Button */}
+        <footer className="mt-2.5 flex items-center gap-2 rounded-[18px] border border-white/10 bg-[var(--color-surface)] px-3 py-1.5 backdrop-blur-xl shadow-lg">
+          <div className="relative h-6 sm:h-7 flex-1 min-w-0 overflow-hidden rounded-full bg-white/5">
+            <Visualizer 
+              analyser={analyser} 
+              color={dominantColor} 
+              isPlaying={isPlaying} 
+              style={activeVisualizer} 
+              glow={true} 
+              className="absolute inset-0 h-full w-full opacity-80 pointer-events-none" 
+            />
             <div className="absolute bottom-0 left-0 top-0 bg-accent/20 transition-all duration-150" style={{ width: `${(progress / (duration || 1)) * 100}%` }} />
             <input aria-label="Seek track" type="range" min="0" max={duration || 100} value={progress} onChange={event => onSeek(Number(event.target.value))} className="absolute inset-0 z-20 h-full w-full cursor-pointer opacity-0" />
             <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2.5 text-[9px] font-semibold text-white/80">
@@ -425,6 +454,19 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
               <span>{formatTime(duration)}</span>
             </div>
           </div>
+          {onOpenEqualizer && (
+            <button
+              onClick={onOpenEqualizer}
+              title="Open Equalizer modal"
+              aria-label="Equalizer"
+              className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border border-accent/40 bg-accent/15 text-accent hover:bg-accent hover:text-[#06101e] active:scale-95 transition-all shrink-0 flex items-center gap-1 shadow-sm"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+              </svg>
+              <span>EQ</span>
+            </button>
+          )}
         </footer>
       </div>
     </div>

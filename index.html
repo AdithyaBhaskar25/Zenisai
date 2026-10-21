@@ -126,7 +126,7 @@
 
         /* Silky smooth text transitions */
         h1, h2, h3, p, span {
-            transition: color 1s cubic-bezier(0.23, 1, 0.32, 1);
+            transition: color 0.5s cubic-bezier(0.23, 1, 0.32, 1);
         }
 
         /* Accent Utilities using Dynamic CSS Variables */
@@ -137,6 +137,227 @@
         .fill-accent { fill: var(--color-primary) !important; }
         .bg-accent-tint { background-color: var(--color-tint) !important; }
         .border-accent-tint { border-color: var(--color-tint) !important; }
+
+        /* ============================================================
+           THEME MODES & VISIBILITY ENHANCEMENTS
+           ============================================================ */
+
+        /* 1. OLED Pitch Black Theme */
+        body.theme-oled {
+            background-color: #000000 !important;
+            --color-bg: #000000 !important;
+            --color-surface: #070707 !important;
+            color: #ffffff !important;
+        }
+        body.theme-oled article,
+        body.theme-oled .bg-\[var\(--color-surface\)\] {
+            background-color: #070707 !important;
+            border-color: #18181b !important;
+        }
+
+        /* 2. Modern Crisp Light Theme (Pure White & High-Contrast Black Typography) */
+        body.theme-light {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            --color-bg: #ffffff !important;
+            --color-surface: #ffffff !important;
+            --color-card-bg: #f8fafc !important;
+            --color-border: rgba(15, 23, 42, 0.14) !important;
+            --color-text: #000000 !important;
+            --color-text-dim: #1e293b !important;
+            --color-text-muted: #334155 !important;
+        }
+
+        /* Enforce Black Typography across all standard headings, paragraphs, and labels */
+        body.theme-light,
+        body.theme-light h1,
+        body.theme-light h2,
+        body.theme-light h3,
+        body.theme-light h4,
+        body.theme-light p:not(.text-accent):not([class*="text-accent"]):not([class*="bg-accent"] *),
+        body.theme-light span:not(.text-accent):not([class*="text-accent"]):not([class*="bg-accent"] *):not([class*="bg-black"] *):not([class*="bg-zinc-9"] *),
+        body.theme-light label,
+        body.theme-light div:not(.bg-accent):not([class*="bg-accent"]):not([class*="bg-black"]):not([class*="bg-zinc-9"]):not([class*="text-accent"]) {
+            color: #000000;
+        }
+
+        /* Tailwind Text Utility Class Overrides for Light Theme */
+        body.theme-light .text-white,
+        body.theme-light .text-white\/95,
+        body.theme-light .text-white\/90,
+        body.theme-light .text-white\/85,
+        body.theme-light .text-white\/80,
+        body.theme-light .text-white\/75 {
+            color: #000000 !important;
+        }
+
+        body.theme-light .text-white\/70,
+        body.theme-light .text-white\/65,
+        body.theme-light .text-white\/60,
+        body.theme-light .text-white\/55,
+        body.theme-light .text-white\/50,
+        body.theme-light .text-white\/45,
+        body.theme-light .text-gray-300,
+        body.theme-light .text-zinc-300,
+        body.theme-light .text-slate-300 {
+            color: #1e293b !important;
+        }
+
+        body.theme-light .text-white\/40,
+        body.theme-light .text-white\/35,
+        body.theme-light .text-white\/30,
+        body.theme-light .text-white\/25,
+        body.theme-light .text-white\/20,
+        body.theme-light .text-white\/10,
+        body.theme-light .text-gray-400,
+        body.theme-light .text-zinc-400,
+        body.theme-light .text-slate-400,
+        body.theme-light .text-gray-500,
+        body.theme-light .text-zinc-500,
+        body.theme-light .text-slate-500 {
+            color: #334155 !important;
+        }
+
+        /* Accent Colors on Lyrics and Highlighted Text */
+        body.theme-light .text-accent,
+        body.theme-light [class*="text-accent"],
+        body.theme-light p.text-accent,
+        body.theme-light span.text-accent {
+            color: var(--color-primary) !important;
+        }
+        body.theme-light .border-accent,
+        body.theme-light [class*="border-accent"] {
+            border-color: var(--color-primary) !important;
+        }
+        body.theme-light .bg-accent {
+            background-color: var(--color-primary) !important;
+            color: #ffffff !important;
+        }
+
+        /* Inactive lyrics readability in light mode */
+        body.theme-light .lyrics-inactive {
+            color: #334155 !important;
+        }
+
+        /* Light Theme: Inputs, Dropdowns & Controls */
+        body.theme-light input:not([type="range"]),
+        body.theme-light select,
+        body.theme-light textarea {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            border-color: rgba(15, 23, 42, 0.22) !important;
+            box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08) !important;
+        }
+        body.theme-light input::placeholder,
+        body.theme-light textarea::placeholder {
+            color: #64748b !important;
+        }
+        body.theme-light select option {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+        }
+
+        /* Light Theme: Card Surfaces & Borders */
+        body.theme-light .bg-white\/\[0\.02\],
+        body.theme-light .bg-white\/\[0\.03\],
+        body.theme-light .bg-white\/\[0\.035\],
+        body.theme-light .bg-white\/\[0\.04\],
+        body.theme-light .bg-white\/\[0\.06\],
+        body.theme-light .bg-white\/\[0\.07\],
+        body.theme-light .bg-white\/\[0\.08\],
+        body.theme-light .bg-white\/5,
+        body.theme-light .bg-white\/10 {
+            background-color: rgba(15, 23, 42, 0.04) !important;
+            border-color: rgba(15, 23, 42, 0.14) !important;
+        }
+        body.theme-light .border-white\/5,
+        body.theme-light .border-white\/10,
+        body.theme-light .border-white\/15,
+        body.theme-light .border-white\/20,
+        body.theme-light [class*="border-white\/"] {
+            border-color: rgba(15, 23, 42, 0.14) !important;
+        }
+
+        /* Light Theme: Floating Hub & Mini Player */
+        body.theme-light #floating-hub > div {
+            background: #ffffff !important;
+            border-color: rgba(15, 23, 42, 0.16) !important;
+            box-shadow: 0 16px 45px -4px rgba(15, 23, 42, 0.16) !important;
+        }
+
+        /* Light Theme: Modals & Panels */
+        body.theme-light .fixed.inset-0 > div:not(.absolute):not(#floating-hub) {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            border-color: rgba(15, 23, 42, 0.16) !important;
+            box-shadow: 0 25px 60px -10px rgba(15, 23, 42, 0.22) !important;
+        }
+
+        /* Light Theme: Reel Floating Actions on Photos */
+        body.theme-light article .absolute.right-3 button:not(.bg-accent) {
+            background-color: rgba(255, 255, 255, 0.92) !important;
+            border-color: rgba(15, 23, 42, 0.16) !important;
+            color: #000000 !important;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12) !important;
+        }
+        body.theme-light article .absolute.right-3 button:not(.bg-accent) svg {
+            color: #000000 !important;
+        }
+        body.theme-light article .absolute.right-3 button.text-accent svg {
+            color: var(--color-primary) !important;
+        }
+        body.theme-light article .absolute.right-3 button.bg-accent svg {
+            color: #ffffff !important;
+        }
+
+        /* Light Theme: Elements that must keep white text (e.g. badges, dark tags) */
+        body.theme-light [class*="bg-black"] .text-white,
+        body.theme-light [class*="bg-black"] [class*="text-white/"],
+        body.theme-light [class*="bg-zinc-9"] .text-white,
+        body.theme-light [class*="bg-zinc-9"] [class*="text-white/"],
+        body.theme-light [class*="bg-rose-500"] *,
+        body.theme-light [class*="bg-emerald-500"] *,
+        body.theme-light .keep-white {
+            color: #ffffff !important;
+        }
+
+        /* 3. Cyberpunk Neon Theme */
+        body.theme-neon {
+            --color-glow: rgba(6, 182, 212, 0.45);
+        }
+        body.theme-neon * {
+            text-shadow: 0 0 10px rgba(6, 182, 212, 0.15);
+        }
+
+        /* 4. Warm Champagne Elegant Theme */
+        body.theme-elegant {
+            font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, serif;
+        }
+
+        /* TV & 10-foot UI Navigation: accessible focus rings */
+        :focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+            box-shadow: 0 0 20px var(--color-glow);
+        }
+
+        /* Animations & Keyframes */
+        @keyframes pulse-subtle {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.03); opacity: 0.85; }
+        }
+        .animate-pulse-subtle {
+            animation: pulse-subtle 3s ease-in-out infinite;
+        }
+
+        @keyframes wave-glow {
+            0% { filter: hue-rotate(0deg) brightness(1); }
+            50% { filter: hue-rotate(25deg) brightness(1.2); }
+            100% { filter: hue-rotate(0deg) brightness(1); }
+        }
+        .animate-wave-glow {
+            animation: wave-glow 8s ease-in-out infinite;
+        }
 
         /* Media Query Bootstrapping: Phone Landscape (compact height) */
         @media (orientation: landscape) and (max-height: 520px) {
@@ -161,6 +382,12 @@
                 margin-left: auto;
                 margin-right: auto;
             }
+        }
+
+        /* TV / Large Display Mode */
+        @media (min-width: 1600px) {
+            html { font-size: 18px; }
+            .app-container-desktop { max-width: 1440px; }
         }
     </style>
 <script type="importmap">
