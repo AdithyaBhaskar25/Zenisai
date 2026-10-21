@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Song, Playlist } from '../types';
 import { ParsedLyricLine, lyricsService } from '../services/lyricsService';
 import { colorWithAlpha } from '../services/colorUtils';
@@ -25,20 +25,31 @@ interface FeedActionProps {
   onClick: () => void;
   active?: boolean;
   children: React.ReactNode;
+  activeColor: string;
+  isLight: boolean;
 }
 
-const FeedAction: React.FC<FeedActionProps> = ({ label, onClick, active, children }) => (
+const FeedAction: React.FC<FeedActionProps> = ({ label, onClick, active, children, activeColor, isLight }) => (
   <button 
     type="button" 
     title={label} 
     aria-label={label} 
     onClick={onClick} 
-    className="flex w-10 sm:w-12 shrink-0 flex-col items-center gap-0.5 sm:gap-1 text-white active:scale-90 transition-transform"
+    className="flex w-10 sm:w-12 shrink-0 flex-col items-center gap-0.5 sm:gap-1 active:scale-90 transition-transform"
   >
-    <span className={`grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-full border border-white/20 bg-black/40 shadow-lg backdrop-blur-md ${active ? 'text-accent' : 'text-white'}`}>
+    <span 
+      className={`grid h-8 w-8 sm:h-10 sm:w-10 place-items-center rounded-full border shadow-lg backdrop-blur-md ${
+        isLight 
+          ? 'bg-white/90 border-slate-200 text-slate-800' 
+          : 'bg-black/40 border-white/20 text-white'
+      }`}
+      style={active ? { color: activeColor, borderColor: colorWithAlpha(activeColor, 0.6) } : {}}
+    >
       {children}
     </span>
-    <span className="max-w-10 sm:max-w-12 truncate text-[7px] sm:text-[8px] font-semibold text-white/80">{label}</span>
+    <span className={`max-w-10 sm:max-w-12 truncate text-[7px] sm:text-[8px] font-bold ${isLight ? 'text-slate-700' : 'text-white/80'}`}>
+      {label}
+    </span>
   </button>
 );
 
@@ -57,6 +68,8 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   }, []);
 
   const activeVisualizer = visualizerStyle || themeConfig.visualizerStyle || 'bars';
+  const activeColor = dominantColor || '#3b82f6';
+  const isLight = themeConfig.mode === 'light' || themeConfig.mode === 'crisp_white';
 
   // --- SYNCHRONIZED LYRICS ENGINE ---
   const [syncedLyrics, setSyncedLyrics] = useState<ParsedLyricLine[]>(() => syncedLyricsList || []);
@@ -68,8 +81,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   const feedScrollRef = useRef<HTMLDivElement>(null);
   const feedScrollTimerRef = useRef<number | null>(null);
   
-  // Ref locks to cleanly handle opening from miniplayer directly onto current song,
-  // while automatically playing whichever reel the user scrolls to!
   const isSuppressedUntilRef = useRef<number>(Date.now() + 650);
   const lastPlayedIdRef = useRef<string>(song.id);
   const hasMountedRef = useRef(false);
@@ -111,7 +122,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     const targetTop = activeIndex * feed.clientHeight;
 
     if (!hasMountedRef.current) {
-      // Opening from mini player: immediately jump directly to the playing song with zero delay
       feed.scrollTop = targetTop;
       hasMountedRef.current = true;
       isSuppressedUntilRef.current = Date.now() + 650;
@@ -123,7 +133,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     }
   }, [activeTab, song.id, queue]);
 
-  // Core auto-play function when user scrolls to a reel
   const checkAndPlayActiveReel = (feed: HTMLElement) => {
     if (Date.now() < isSuppressedUntilRef.current) return;
     const itemHeight = Math.max(feed.clientHeight, 1);
@@ -146,7 +155,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     }, 90);
   };
 
-  // Modern browser scrollend event for instantaneous reel playback on settle
   useEffect(() => {
     const feed = feedScrollRef.current;
     if (!feed) return;
@@ -168,7 +176,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     return -1;
   }, [syncedLyrics, progress]);
 
-  // Autoscroll lyrics in lyrics tab
   useEffect(() => {
     if (activeTab === 'lyrics' && activeLyricRef.current) {
       activeLyricRef.current.scrollIntoView({
@@ -178,7 +185,6 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
     }
   }, [currentLineIndex, activeTab]);
 
-  // Swipe gestures for landscape or horizontal navigation
   const handleTouchStart = (e: React.TouchEvent) => { 
     touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; 
   };
@@ -196,25 +202,29 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[200] flex flex-col bg-[var(--color-bg)] overflow-hidden animate-in slide-in-from-bottom duration-500" 
+      className={`fixed inset-0 z-[200] flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-500 ${isLight ? '!bg-white !text-zinc-900' : 'bg-[var(--color-bg)] text-white'}`} 
       onTouchStart={handleTouchStart} 
       onTouchEnd={handleTouchEnd}
     >
       {/* Dynamic ambient art aura */}
       <img src={song.artwork} alt="" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-20 blur-3xl" />
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 45%, transparent), color-mix(in srgb, var(--color-bg) 82%, transparent), var(--color-bg))' }} />
-      <div className="absolute inset-0 opacity-25 blur-[100px]" style={{ background: `radial-gradient(circle at center, ${dominantColor}, transparent 70%)` }} />
+      <div className="absolute inset-0" style={{ background: isLight ? 'linear-gradient(180deg, rgba(255,255,255,0.7), rgba(255,255,255,0.92), #ffffff)' : 'linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 45%, transparent), color-mix(in srgb, var(--color-bg) 82%, transparent), var(--color-bg))' }} />
+      <div className="absolute inset-0 opacity-25 blur-[100px]" style={{ background: `radial-gradient(circle at center, ${activeColor}, transparent 70%)` }} />
 
       {/* Responsive Viewport Wrapper */}
       <div className="relative z-10 flex flex-col h-full max-w-5xl mx-auto w-full px-3 sm:px-6 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
         {/* Header */}
         <header className="flex items-center gap-2 mb-3 compact-landscape:mb-1 h-11 compact-landscape:h-8">
-          <button onClick={onClose} className="p-2 bg-white/5 rounded-full active:scale-90 transition-all hover:bg-white/10" aria-label="Minimize player">
-            <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" /></svg>
+          <button 
+            onClick={onClose} 
+            className={`p-2 rounded-full active:scale-90 transition-all border ${isLight ? 'bg-zinc-100 border-zinc-300 text-zinc-700 hover:bg-zinc-200' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`} 
+            aria-label="Minimize player"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" /></svg>
           </button>
           <div className="flex-1 text-center min-w-0">
-            <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-accent leading-none mb-0.5">Now playing</p>
-            <p className="text-xs font-semibold text-white/85 truncate px-2">{song.title}</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.2em] leading-none mb-0.5" style={{ color: activeColor }}>Now playing</p>
+            <p className={`text-xs font-semibold truncate px-2 ${isLight ? 'text-zinc-900' : 'text-white/85'}`}>{song.title}</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             {onOpenEqualizer && (
@@ -222,7 +232,8 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                 onClick={onOpenEqualizer} 
                 title="Equalizer & Sound Stage" 
                 aria-label="Equalizer"
-                className="p-2 rounded-full border border-white/10 bg-white/5 text-accent hover:bg-white/15 active:scale-90 transition-all"
+                className={`p-2 rounded-full border transition-all active:scale-90 ${isLight ? 'bg-zinc-100 border-zinc-300 text-zinc-800 hover:bg-zinc-200' : 'bg-white/5 border-white/10 text-white hover:bg-white/15'}`}
+                style={{ color: activeColor }}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -234,17 +245,17 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                 onClick={onOpenThemeSettings} 
                 title="Theme & Visuals" 
                 aria-label="Theme settings"
-                className="p-2 rounded-full border border-white/10 bg-white/5 text-white/70 hover:text-white hover:bg-white/15 active:scale-90 transition-all"
+                className={`p-2 rounded-full border transition-all active:scale-90 ${isLight ? 'bg-zinc-100 border-zinc-300 text-zinc-700 hover:bg-zinc-200' : 'bg-white/5 border-white/10 text-white/70 hover:text-white hover:bg-white/15'}`}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014-4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014 4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
                 </svg>
               </button>
             )}
             {activeTab === 'player' ? (
-              <span className="text-[10px] font-semibold text-white/40 pl-1">{queue.length || 1} tracks</span>
+              <span className={`text-[10px] font-semibold pl-1 ${isLight ? 'text-zinc-500' : 'text-white/40'}`}>{queue.length || 1} tracks</span>
             ) : (
-              <button onClick={() => setActiveTab('player')} className="rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-[9px] font-semibold text-white/80 hover:bg-white/10">Feed</button>
+              <button onClick={() => setActiveTab('player')} className={`rounded-full border px-3 py-1.5 text-[9px] font-semibold ${isLight ? 'border-zinc-300 bg-zinc-100 text-zinc-800 hover:bg-zinc-200' : 'border-white/15 bg-black/40 text-white/80 hover:bg-white/10'}`}>Feed</button>
             )}
           </div>
         </header>
@@ -255,19 +266,19 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
             <div 
               ref={feedScrollRef} 
               onScroll={handleScroll}
-              className="h-full min-h-0 snap-y snap-mandatory overflow-y-auto overscroll-contain rounded-[24px] sm:rounded-[28px] border border-white/10 bg-[var(--color-surface)] no-scrollbar shadow-2xl"
+              className={`h-full min-h-0 snap-y snap-mandatory overflow-y-auto overscroll-contain rounded-[24px] sm:rounded-[28px] border no-scrollbar shadow-2xl ${isLight ? 'bg-zinc-100 border-zinc-300' : 'bg-[var(--color-surface)] border-white/10'}`}
             >
               {(queue.length > 0 ? queue : [song]).map((feedSong, index) => {
                 const isCurrent = feedSong.id === song.id;
                 return (
                   <article 
                     key={`${feedSong.id}-${index}`} 
-                    className="relative h-full min-h-full snap-start overflow-hidden bg-[var(--color-surface)] select-none"
+                    className="relative h-full min-h-full snap-start overflow-hidden bg-black select-none"
                   >
                     <img src={feedSong.artwork} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#02040a]/95 via-[#02040a]/30 to-[#02040a]/35" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/30 to-black/35" />
 
-                    {/* Tap overlay: tapping current toggles play/pause, tapping other immediately plays it */}
+                    {/* Tap overlay */}
                     <button 
                       onClick={() => isCurrent ? onToggle() : onPlayFromQueue(feedSong)} 
                       aria-label={isCurrent && isPlaying ? 'Pause playback' : 'Play song'} 
@@ -276,10 +287,13 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
 
                     {/* Top status tag */}
                     <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between p-3 sm:p-4">
-                      <span className={`rounded-full border px-3 py-1 text-[9px] font-bold uppercase tracking-[0.16em] backdrop-blur-md ${isCurrent ? 'border-accent/40 bg-black/50 text-accent' : 'border-white/15 bg-black/35 text-white/80'}`}>
+                      <span 
+                        className="rounded-full border px-3 py-1 text-[9px] font-bold uppercase tracking-[0.16em] backdrop-blur-md shadow-md"
+                        style={isCurrent ? { backgroundColor: colorWithAlpha(activeColor, 0.85), borderColor: activeColor, color: '#ffffff' } : { backgroundColor: 'rgba(0,0,0,0.5)', borderColor: 'rgba(255,255,255,0.2)', color: '#ffffff' }}
+                      >
                         {isCurrent && isPlaying ? 'Now playing' : isCurrent ? 'Paused' : 'Zenisai reel'}
                       </span>
-                      <span className="text-[10px] font-semibold text-white/70 bg-black/30 px-2 py-0.5 rounded-full backdrop-blur-md">
+                      <span className="text-[10px] font-semibold text-white bg-black/50 px-2.5 py-0.5 rounded-full backdrop-blur-md">
                         {index + 1} / {queue.length || 1}
                       </span>
                     </div>
@@ -288,74 +302,75 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                     <div className="pointer-events-none absolute bottom-3 sm:bottom-5 left-3 sm:left-6 z-10 max-w-[calc(100%-5rem)] compact-landscape:max-w-[calc(100%-7.5rem)]">
                       <div className="mb-2 compact-landscape:mb-1 min-h-8 compact-landscape:min-h-5">
                         {isCurrent && currentLineIndex >= 0 ? (
-                          <p className="text-base sm:text-lg compact-landscape:text-sm font-bold leading-tight text-accent drop-shadow-lg">
+                          <p className="text-base sm:text-lg compact-landscape:text-sm font-bold leading-tight drop-shadow-lg" style={{ color: activeColor }}>
                             {syncedLyrics[currentLineIndex].text}
                           </p>
                         ) : isCurrent && plainLyrics.length > 0 ? (
-                          <p className="text-xs sm:text-sm font-semibold text-white/80">{plainLyrics[0]}</p>
+                          <p className="text-xs sm:text-sm font-semibold text-white/90">{plainLyrics[0]}</p>
                         ) : (
-                          <p className="text-[11px] font-medium text-white/60">
+                          <p className="text-[11px] font-medium text-white/70">
                             {isLoadingLyrics ? 'Loading lyrics...' : 'Lyrics sync with track'}
                           </p>
                         )}
                       </div>
-                      <h2 className="truncate text-xl sm:text-2xl compact-landscape:text-base font-bold text-white drop-shadow-md">
+                      <h2 className="truncate text-xl sm:text-2xl compact-landscape:text-base font-extrabold text-white drop-shadow-md">
                         {feedSong.title}
                       </h2>
-                      <p className="mt-0.5 truncate text-xs sm:text-sm text-white/75">{feedSong.artist}</p>
+                      <p className="mt-0.5 truncate text-xs sm:text-sm font-medium text-white/80">{feedSong.artist}</p>
                     </div>
 
-                    {/* Action buttons rail: adapts smoothly for portrait and compact landscape on phones */}
+                    {/* Action buttons rail */}
                     <div className="absolute right-2 top-1/2 z-20 flex max-h-[calc(100%-1.5rem)] -translate-y-1/2 flex-col compact-landscape:grid compact-landscape:grid-cols-2 compact-landscape:gap-1.5 compact-landscape:max-h-[92%] items-center gap-2 sm:gap-2.5 overflow-y-auto no-scrollbar sm:right-4">
-                      <FeedAction label={isFavorite(feedSong.id) ? 'Saved' : 'Like'} active={isFavorite(feedSong.id)} onClick={() => onToggleFavorite(feedSong)}>
+                      <FeedAction label={isFavorite(feedSong.id) ? 'Saved' : 'Like'} active={isFavorite(feedSong.id)} onClick={() => onToggleFavorite(feedSong)} activeColor={activeColor} isLight={isLight}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill={isFavorite(feedSong.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" /></svg>
                       </FeedAction>
                       {onOpenEqualizer && (
-                        <FeedAction label="Equalizer" active={true} onClick={onOpenEqualizer}>
+                        <FeedAction label="Equalizer" active={true} onClick={onOpenEqualizer} activeColor={activeColor} isLight={isLight}>
                           <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                         </FeedAction>
                       )}
-                      <FeedAction label="Queue" onClick={() => setActiveTab('queue')}>
+                      <FeedAction label="Queue" onClick={() => setActiveTab('queue')} activeColor={activeColor} isLight={isLight}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h10m3-3 3 3-3 3" /></svg>
                       </FeedAction>
-                      <FeedAction label="Lyrics" onClick={() => setActiveTab('lyrics')}>
+                      <FeedAction label="Lyrics" onClick={() => setActiveTab('lyrics')} activeColor={activeColor} isLight={isLight}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13M9 9l12-2M5 19c0 1.1-1.1 2-2.5 2S0 20.1 0 19s1.1-2 2.5-2S5 17.9 5 19zm16-3c0 1.1-1.1 2-2.5 2S16 16.9 16 16s1.1-2 2.5-2S21 14.9 21 16z" /></svg>
                       </FeedAction>
-                      <FeedAction label="Playlist" onClick={() => onShowPlaylistModal(feedSong)}>
+                      <FeedAction label="Playlist" onClick={() => onShowPlaylistModal(feedSong)} activeColor={activeColor} isLight={isLight}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
                       </FeedAction>
-                      <FeedAction label="Download" onClick={() => onDownload(feedSong)}>
+                      <FeedAction label="Download" onClick={() => onDownload(feedSong)} activeColor={activeColor} isLight={isLight}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" /></svg>
                       </FeedAction>
-                      <FeedAction label={sleepTimer ? 'Timer on' : 'Timer'} active={sleepTimer !== null} onClick={() => setShowSleepTimerMenu(value => !value)}>
+                      <FeedAction label={sleepTimer ? 'Timer on' : 'Timer'} active={sleepTimer !== null} onClick={() => setShowSleepTimerMenu(value => !value)} activeColor={activeColor} isLight={isLight}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
                       </FeedAction>
-                      <FeedAction label={isShuffle ? 'Shuffle on' : 'Shuffle'} active={isShuffle} onClick={onToggleShuffle}>
+                      <FeedAction label={isShuffle ? 'Shuffle on' : 'Shuffle'} active={isShuffle} onClick={onToggleShuffle} activeColor={activeColor} isLight={isLight}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>
                       </FeedAction>
-                      <FeedAction label={repeatMode === 'off' ? 'Repeat' : repeatMode === 'one' ? 'Repeat 1' : 'Repeat all'} active={repeatMode !== 'off'} onClick={onToggleRepeat}>
+                      <FeedAction label={repeatMode === 'off' ? 'Repeat' : repeatMode === 'one' ? 'Repeat 1' : 'Repeat all'} active={repeatMode !== 'off'} onClick={onToggleRepeat} activeColor={activeColor} isLight={isLight}>
                         <span className="relative">
                           <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-1v2a3 3 0 0 1-3 3H3" /></svg>
-                          {repeatMode === 'one' && <span className="absolute -right-1 -top-1 grid h-3 w-3 place-items-center rounded-full bg-accent text-[7px] font-black text-[#06101e]">1</span>}
+                          {repeatMode === 'one' && <span className="absolute -right-1 -top-1 grid h-3 w-3 place-items-center rounded-full text-[7px] font-black text-white shadow" style={{ backgroundColor: activeColor }}>1</span>}
                         </span>
                       </FeedAction>
                       {onOpenThemeSettings && (
-                        <FeedAction label="Themes" onClick={onOpenThemeSettings}>
+                        <FeedAction label="Themes" onClick={onOpenThemeSettings} activeColor={activeColor} isLight={isLight}>
                           <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014 4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
                         </FeedAction>
                       )}
-                      <FeedAction label="Share" onClick={() => onShare(feedSong)}>
+                      <FeedAction label="Share" onClick={() => onShare(feedSong)} activeColor={activeColor} isLight={isLight}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 10.7 6.8-4.4m-6.8 7 6.8 4.1" /></svg>
                       </FeedAction>
                     </div>
 
                     {showSleepTimerMenu && (
-                      <div className="absolute right-14 sm:right-16 top-1/2 z-30 w-32 -translate-y-1/2 rounded-2xl border border-accent-tint bg-[var(--color-surface)] p-1.5 shadow-2xl backdrop-blur-xl animate-in fade-in duration-200">
+                      <div className="absolute right-14 sm:right-16 top-1/2 z-30 w-32 -translate-y-1/2 rounded-2xl border border-white/20 bg-black/90 p-1.5 shadow-2xl backdrop-blur-xl animate-in fade-in duration-200">
                         {[null, 60, 300, 900, 1800].map(value => (
                           <button 
                             key={String(value)} 
                             onClick={() => { setSleepTimer(value); setShowSleepTimerMenu(false); }} 
-                            className={`w-full rounded-xl p-2 text-center text-[10px] font-bold uppercase transition-colors ${sleepTimer === value ? 'bg-accent/20 text-accent' : 'text-white/60 hover:text-white'}`}
+                            className={`w-full rounded-xl p-2 text-center text-[10px] font-bold uppercase transition-colors ${sleepTimer === value ? 'text-white' : 'text-white/60 hover:text-white'}`}
+                            style={sleepTimer === value ? { backgroundColor: activeColor } : {}}
                           >
                             {value === null ? 'Off' : value < 60 ? `${value}s` : `${value / 60} min`}
                           </button>
@@ -395,17 +410,17 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                     onDragOver={event => event.preventDefault()} 
                     onDrop={event => { event.preventDefault(); if (dragItemRef.current !== null) onMoveQueueItem(dragItemRef.current, i); dragItemRef.current = null; }} 
                     onDragEnd={() => { dragItemRef.current = null; }} 
-                    className={`flex items-center gap-3 p-3 rounded-[18px] border transition-all ${qs.id === song.id ? 'bg-white/10 border-white/20 shadow-lg' : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06]'}`}
+                    className={`flex items-center gap-3 p-3 rounded-[18px] border transition-all ${qs.id === song.id ? (isLight ? 'bg-zinc-200 border-zinc-300 shadow-md' : 'bg-white/10 border-white/20 shadow-lg') : (isLight ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100' : 'bg-white/[0.03] border-white/5 hover:bg-white/[0.06]')}`}
                   >
-                    <div className="p-1.5 text-white/30 touch-none cursor-grab">
+                    <div className="p-1.5 opacity-40 touch-none cursor-grab">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M4 8h16M4 16h16" /></svg>
                     </div>
                     <img src={qs.artwork} className="w-10 h-10 rounded-lg object-cover shadow-sm cursor-pointer" onClick={() => onPlayFromQueue(qs)} alt="" />
                     <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onPlayFromQueue(qs)}>
-                      <p className={`text-xs font-bold truncate ${qs.id === song.id ? 'text-accent' : 'text-white'}`}>{qs.title}</p>
-                      <p className="text-[9px] text-white/40 font-semibold uppercase truncate mt-0.5">{qs.artist}</p>
+                      <p className={`text-xs font-bold truncate ${qs.id === song.id ? '' : (isLight ? 'text-zinc-900' : 'text-white')}`} style={qs.id === song.id ? { color: activeColor } : {}}>{qs.title}</p>
+                      <p className={`text-[9px] font-semibold uppercase truncate mt-0.5 ${isLight ? 'text-zinc-500' : 'text-white/40'}`}>{qs.artist}</p>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); onRemoveFromQueue(qs.id); }} className="p-2 text-white/30 hover:text-rose-400 active:scale-75 transition-all">
+                    <button onClick={(e) => { e.stopPropagation(); onRemoveFromQueue(qs.id); }} className="p-2 opacity-50 hover:opacity-100 hover:text-rose-500 active:scale-75 transition-all">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
@@ -424,32 +439,33 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                     onClick={() => onSeek(l.time)} 
                     className={`text-lg sm:text-2xl font-bold cursor-pointer transition-all duration-500 ${
                       i === currentLineIndex 
-                        ? 'text-accent scale-105 drop-shadow-lg font-extrabold' 
-                        : 'text-white/40 hover:text-white/80'
+                        ? 'scale-105 drop-shadow-lg font-extrabold' 
+                        : isLight ? 'text-zinc-400 hover:text-zinc-800' : 'text-white/40 hover:text-white/80'
                     }`}
+                    style={i === currentLineIndex ? { color: activeColor } : {}}
                    >
                     {l.text}
                    </p>
-                 )) : plainLyrics.map((l, i) => <p key={i} className="text-base sm:text-lg font-medium text-white/50 py-1">{l}</p>)}
+                 )) : plainLyrics.map((l, i) => <p key={i} className={`text-base sm:text-lg font-medium py-1 ${isLight ? 'text-zinc-600' : 'text-white/50'}`}>{l}</p>)}
                </div>
              </div>
           )}
         </main>
 
         {/* Footer Scrub Bar & Equalizer Button */}
-        <footer className="mt-2.5 flex items-center gap-2 rounded-[18px] border border-white/10 bg-[var(--color-surface)] px-3 py-1.5 backdrop-blur-xl shadow-lg">
-          <div className="relative h-6 sm:h-7 flex-1 min-w-0 overflow-hidden rounded-full bg-white/5">
+        <footer className={`mt-2.5 flex items-center gap-2 rounded-[18px] border px-3 py-1.5 backdrop-blur-xl shadow-lg ${isLight ? 'bg-zinc-100 border-zinc-300' : 'bg-[var(--color-surface)] border-white/10'}`}>
+          <div className={`relative h-6 sm:h-7 flex-1 min-w-0 overflow-hidden rounded-full ${isLight ? 'bg-zinc-200' : 'bg-white/5'}`}>
             <Visualizer 
               analyser={analyser} 
-              color={dominantColor} 
+              color={activeColor} 
               isPlaying={isPlaying} 
               style={activeVisualizer} 
               glow={true} 
               className="absolute inset-0 h-full w-full opacity-80 pointer-events-none" 
             />
-            <div className="absolute bottom-0 left-0 top-0 bg-accent/20 transition-all duration-150" style={{ width: `${(progress / (duration || 1)) * 100}%` }} />
+            <div className="absolute bottom-0 left-0 top-0 transition-all duration-150" style={{ width: `${(progress / (duration || 1)) * 100}%`, backgroundColor: colorWithAlpha(activeColor, 0.35) }} />
             <input aria-label="Seek track" type="range" min="0" max={duration || 100} value={progress} onChange={event => onSeek(Number(event.target.value))} className="absolute inset-0 z-20 h-full w-full cursor-pointer opacity-0" />
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-between px-2.5 text-[9px] font-semibold text-white/80">
+            <div className={`pointer-events-none absolute inset-0 flex items-center justify-between px-2.5 text-[9px] font-bold ${isLight ? 'text-zinc-800' : 'text-white/80'}`}>
               <span>{formatTime(progress)}</span>
               <span>{formatTime(duration)}</span>
             </div>
@@ -459,7 +475,8 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
               onClick={onOpenEqualizer}
               title="Open Equalizer modal"
               aria-label="Equalizer"
-              className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border border-accent/40 bg-accent/15 text-accent hover:bg-accent hover:text-[#06101e] active:scale-95 transition-all shrink-0 flex items-center gap-1 shadow-sm"
+              className="px-2.5 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider text-white hover:brightness-110 active:scale-95 transition-all shrink-0 flex items-center gap-1 shadow-sm"
+              style={{ backgroundColor: activeColor }}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
