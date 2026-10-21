@@ -42,17 +42,13 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     themeService.setVisualizerStyle(style);
   };
 
-  // Support both 'light' and 'crisp_white' naming conventions if applicable
   const isLightMode = config.mode === 'light' || config.mode === 'crisp_white';
-
-  // Dynamic color for text/headers in light mode: uses song dominant color if available, else crisp black
-  const lightModeTextColor = currentSongDominantColor || '#000000';
 
   // Strict color assignments for light vs dark mode to prevent invisible text
   const modalBg = isLightMode ? '!bg-white !text-zinc-900 border-zinc-300 shadow-2xl' : 'bg-[var(--color-surface)] text-white border-white/10';
-  const textPrimary = isLightMode ? 'font-bold' : 'text-white font-bold';
-  const textSecondary = isLightMode ? 'text-zinc-700 font-medium' : 'text-white/70';
-  const textMuted = isLightMode ? 'text-zinc-500 font-medium' : 'text-white/50';
+  const textPrimary = isLightMode ? '!text-zinc-900 font-bold' : 'text-white font-bold';
+  const textSecondary = isLightMode ? '!text-zinc-700 font-medium' : 'text-white/70';
+  const textMuted = isLightMode ? '!text-zinc-500 font-medium' : 'text-white/50';
   const cardBg = isLightMode ? '!bg-zinc-100 border-zinc-300 hover:!bg-zinc-200' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]';
   const closeBtnBg = isLightMode ? '!bg-zinc-200 hover:!bg-zinc-300 !text-zinc-800' : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white';
 
@@ -84,12 +80,7 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
               </svg>
             </div>
             <div>
-              <h2 
-                className={`text-base sm:text-lg tracking-tight ${textPrimary}`}
-                style={{ color: isLightMode ? lightModeTextColor : undefined }}
-              >
-                Theme & Visual Experience
-              </h2>
+              <h2 className={`text-base sm:text-lg tracking-tight ${textPrimary}`}>Theme & Visual Experience</h2>
               <p className={`text-[11px] ${textSecondary}`}>Personalize themes, accents, and visualizers</p>
             </div>
           </div>
@@ -112,12 +103,7 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
           </div>
           <div className="flex-1 min-w-0">
             <span className="text-[9px] font-bold uppercase tracking-wider block leading-none mb-0.5" style={{ color: effectiveAccent }}>Live Style Preview</span>
-            <p 
-              className={`text-xs truncate ${textPrimary}`}
-              style={{ color: isLightMode ? lightModeTextColor : undefined }}
-            >
-              Soundtrack of the Universe
-            </p>
+            <p className={`text-xs truncate ${textPrimary}`}>Soundtrack of the Universe</p>
             <div className="h-5 w-full mt-1">
               <Visualizer analyser={null} color={effectiveAccent} isPlaying={true} style={config.visualizerStyle} />
             </div>
@@ -126,12 +112,7 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
         {/* Section 1: Themes */}
         <div className="mt-4 space-y-2">
-          <label 
-            className={`text-[11px] font-black uppercase tracking-wider block ${textSecondary}`}
-            style={{ color: isLightMode ? lightModeTextColor : undefined }}
-          >
-            Theme Mode
-          </label>
+          <label className={`text-[11px] font-black uppercase tracking-wider block ${textSecondary}`}>Theme Mode</label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {(Object.entries(THEME_MODES) as [ThemeMode, { name: string; desc: string; bg: string; surface: string }][]).map(([modeKey, info]) => {
               const isSelected = config.mode === modeKey;
@@ -145,20 +126,15 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       : cardBg
                   }`}
                   style={isSelected ? { 
-                    backgroundColor: isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)', 
+                    backgroundColor: isLightMode ? colorWithAlpha(effectiveAccent, 0.12) : 'rgba(255,255,255,0.08)', 
                     borderColor: effectiveAccent,
-                    boxShadow: `0 4px 20px ${colorWithAlpha(effectiveAccent, 0.25)}` 
+                    boxShadow: `0 4px 20px ${colorWithAlpha(effectiveAccent, 0.35)}` 
                   } : {}}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span 
-                      className={`text-xs truncate ${textPrimary}`}
-                      style={{ color: isLightMode ? lightModeTextColor : undefined }}
-                    >
-                      {info.name}
-                    </span>
+                    <span className={`text-xs truncate ${textPrimary}`} style={isSelected && isLightMode ? { color: effectiveAccent } : {}}>{info.name}</span>
                     {isSelected && (
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: effectiveAccent }} />
+                      <span className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: effectiveAccent }} />
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 mt-2">
@@ -175,12 +151,7 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         {/* Section 2: Accent Colors */}
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between">
-            <label 
-              className={`text-[11px] font-black uppercase tracking-wider ${textSecondary}`}
-              style={{ color: isLightMode ? lightModeTextColor : undefined }}
-            >
-              Accent Highlight Color
-            </label>
+            <label className={`text-[11px] font-black uppercase tracking-wider ${textSecondary}`}>Accent Highlight Color</label>
             <span className={`text-[10px] font-semibold ${textMuted}`}>{ACCENT_PRESETS[config.accent]?.name}</span>
           </div>
           <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
@@ -192,9 +163,9 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   key={key}
                   onClick={() => handleSelectAccent(key)}
                   className={`p-2.5 rounded-2xl flex flex-col items-center gap-1.5 border transition-all active:scale-90 ${
-                    isSelected ? 'ring-2 ring-zinc-500 scale-105 shadow-lg' : cardBg
+                    isSelected ? 'ring-2 scale-105 shadow-lg' : cardBg
                   }`}
-                  style={isSelected ? { borderColor: displayColor } : {}}
+                  style={isSelected ? { borderColor: displayColor, ringColor: displayColor, backgroundColor: isLightMode ? colorWithAlpha(displayColor, 0.1) : undefined } : {}}
                   title={item.name}
                 >
                   <div 
@@ -208,10 +179,7 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                     )}
                   </div>
-                  <span 
-                    className={`text-[9px] font-bold truncate w-full text-center ${textSecondary}`}
-                    style={{ color: isLightMode ? lightModeTextColor : undefined }}
-                  >
+                  <span className={`text-[9px] font-bold truncate w-full text-center ${textSecondary}`} style={isSelected && isLightMode ? { color: displayColor } : {}}>
                     {key === 'dynamic' ? 'Dynamic' : item.name.split(' ')[0]}
                   </span>
                 </button>
@@ -222,12 +190,7 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
         {/* Section 3: Visualizer Styles */}
         <div className="mt-4 space-y-2">
-          <label 
-            className={`text-[11px] font-black uppercase tracking-wider block ${textSecondary}`}
-            style={{ color: isLightMode ? lightModeTextColor : undefined }}
-          >
-            Audio Visualizer Engine
-          </label>
+          <label className={`text-[11px] font-black uppercase tracking-wider block ${textSecondary}`}>Audio Visualizer Engine</label>
           <div className="grid grid-cols-3 gap-2">
             {[
               { id: 'bars', name: 'Spectrum Bars', desc: 'Punchy EQ bands' },
@@ -245,17 +208,12 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                       : cardBg
                   }`}
                   style={isSelected ? { 
-                    backgroundColor: isLightMode ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)', 
+                    backgroundColor: isLightMode ? colorWithAlpha(effectiveAccent, 0.12) : 'rgba(255,255,255,0.08)', 
                     borderColor: effectiveAccent,
-                    boxShadow: `0 4px 15px ${colorWithAlpha(effectiveAccent, 0.25)}` 
+                    boxShadow: `0 4px 15px ${colorWithAlpha(effectiveAccent, 0.35)}` 
                   } : {}}
                 >
-                  <span 
-                    className={`text-xs block ${textPrimary}`}
-                    style={{ color: isLightMode ? lightModeTextColor : undefined }}
-                  >
-                    {vis.name}
-                  </span>
+                  <span className={`text-xs block ${textPrimary}`} style={isSelected && isLightMode ? { color: effectiveAccent } : {}}>{vis.name}</span>
                   <span className={`text-[10px] block mt-0.5 ${textMuted}`}>{vis.desc}</span>
                   <div className="h-6 w-full mt-2 rounded-lg bg-black/30 p-1">
                     <Visualizer analyser={null} color={effectiveAccent} isPlaying={true} style={vis.id as VisualizerStyle} />
