@@ -164,12 +164,11 @@ class ThemeService {
     let surface = modeConfig.surface;
 
     if (this.config.mode === 'ambient') {
-      // Dynamic dark mix with current dominant color, reflecting song art vibe dynamically
       bg = `color-mix(in srgb, #02040a 78%, ${effAccent} 22%)`;
       surface = `color-mix(in srgb, #080d1a 75%, ${effAccent} 25%)`;
     }
 
-    // Set CSS custom properties with safe RGBA values
+    // Set CSS custom properties with safe values
     root.style.setProperty('--color-primary', effAccent);
     root.style.setProperty('--color-bg', bg);
     root.style.setProperty('--color-surface', surface);
@@ -202,8 +201,8 @@ class ThemeService {
       } else if (this.config.mode === 'oled') {
         resolvedThemeColor = '#000000';
       } else if (this.config.mode === 'ambient') {
-        // Dynamically compute a deep dark ambient header color from current active accent/song color without forcing blue
-        resolvedThemeColor = '#030711';
+        // Use the live dynamic accent/song color directly for the ambient status bar tint
+        resolvedThemeColor = effAccent;
       } else {
         resolvedThemeColor = bg;
       }
