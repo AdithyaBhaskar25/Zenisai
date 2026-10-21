@@ -25,22 +25,16 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
 
   useEffect(() => {
     return themeService.subscribe((newConfig, newAccent) => {
-      // If Ambient mode is selected, lock notification / accent highlights to blue
-      const resolvedAccent = newConfig.mode === 'ambient' ? '#3b82f6' : newAccent;
       setConfig(newConfig);
-      setEffectiveAccent(resolvedAccent);
+      setEffectiveAccent(newAccent);
     });
   }, []);
 
   const handleSelectMode = (mode: ThemeMode) => {
     themeService.setMode(mode);
-    if (mode === 'ambient') {
-      themeService.setAccent('blue' as AccentPreset);
-    }
   };
 
   const handleSelectAccent = (accent: AccentPreset) => {
-    if (config.mode === 'ambient') return; // Prevent overriding blue accent in ambient mode
     themeService.setAccent(accent);
   };
 
@@ -49,14 +43,12 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
   };
 
   const isLightMode = config.mode === 'crisp_white';
-  const modalBg = isLightMode ? 'bg-zinc-100 text-zinc-900 border-zinc-300' : 'bg-[var(--color-surface)] text-white border-white/10';
+  const modalBg = isLightMode ? 'bg-white text-zinc-900 border-zinc-300' : 'bg-[var(--color-surface)] text-white border-white/10';
   const textPrimary = isLightMode ? 'text-zinc-900' : 'text-white';
   const textSecondary = isLightMode ? 'text-zinc-600' : 'text-white/60';
   const textMuted = isLightMode ? 'text-zinc-500' : 'text-white/45';
-  const cardBg = isLightMode ? 'bg-white border-zinc-200 hover:bg-zinc-50' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]';
-  const closeBtnBg = isLightMode ? 'bg-zinc-200 hover:bg-zinc-300 text-zinc-700' : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white';
-
-  const currentAccentColor = config.mode === 'ambient' ? '#3b82f6' : effectiveAccent;
+  const cardBg = isLightMode ? 'bg-zinc-50 border-zinc-200 hover:bg-zinc-100' : 'bg-white/[0.03] border-white/10 hover:bg-white/[0.06]';
+  const closeBtnBg = isLightMode ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700' : 'bg-white/5 hover:bg-white/10 text-white/60 hover:text-white';
 
   return (
     <div 
@@ -65,13 +57,13 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
     >
       <div 
         className={`relative w-full max-w-xl max-h-[92dvh] overflow-y-auto no-scrollbar rounded-[28px] border p-4 sm:p-6 shadow-2xl transition-all duration-300 animate-in slide-in-from-bottom-4 ${modalBg}`}
-        style={{ borderColor: colorWithAlpha(currentAccentColor, 0.3) }}
+        style={{ borderColor: colorWithAlpha(effectiveAccent, 0.3) }}
         onClick={e => e.stopPropagation()}
       >
         {/* Ambient Top Glow */}
         <div 
           className="absolute -top-20 left-1/2 -translate-x-1/2 w-80 h-36 rounded-full blur-[90px] pointer-events-none opacity-40 transition-colors duration-500" 
-          style={{ backgroundColor: currentAccentColor }}
+          style={{ backgroundColor: effectiveAccent }}
         />
 
         {/* Header */}
@@ -79,7 +71,7 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
           <div className="flex items-center gap-3">
             <div 
               className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg border"
-              style={{ backgroundColor: colorWithAlpha(currentAccentColor, 0.15), borderColor: colorWithAlpha(currentAccentColor, 0.4), color: isLightMode ? currentAccentColor : '#fff' }}
+              style={{ backgroundColor: colorWithAlpha(effectiveAccent, 0.15), borderColor: colorWithAlpha(effectiveAccent, 0.4), color: isLightMode ? effectiveAccent : '#fff' }}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014 4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
@@ -102,16 +94,16 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         </div>
 
         {/* Live Preview Card */}
-        <div className={`relative mt-4 p-3.5 rounded-2xl border shadow-inner overflow-hidden flex items-center gap-3 ${isLightMode ? 'bg-white border-zinc-200' : 'bg-black/40 border-white/25'}`} style={{ borderColor: colorWithAlpha(currentAccentColor, 0.25) }}>
-          <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border relative" style={{ borderColor: colorWithAlpha(currentAccentColor, 0.4) }}>
+        <div className={`relative mt-4 p-3.5 rounded-2xl border shadow-inner overflow-hidden flex items-center gap-3 ${isLightMode ? 'bg-zinc-50 border-zinc-200' : 'bg-black/40 border-white/25'}`} style={{ borderColor: colorWithAlpha(effectiveAccent, 0.25) }}>
+          <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border relative" style={{ borderColor: colorWithAlpha(effectiveAccent, 0.4) }}>
             <img src="https://picsum.photos/seed/zenisai_preview/200/200" alt="" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/25" />
           </div>
           <div className="flex-1 min-w-0">
-            <span className="text-[9px] font-bold uppercase tracking-wider block leading-none mb-0.5" style={{ color: currentAccentColor }}>Live Style Preview</span>
+            <span className="text-[9px] font-bold uppercase tracking-wider block leading-none mb-0.5" style={{ color: effectiveAccent }}>Live Style Preview</span>
             <p className={`text-xs font-bold truncate ${textPrimary}`}>Soundtrack of the Universe</p>
             <div className="h-5 w-full mt-1">
-              <Visualizer analyser={null} color={currentAccentColor} isPlaying={true} style={config.visualizerStyle} />
+              <Visualizer analyser={null} color={effectiveAccent} isPlaying={true} style={config.visualizerStyle} />
             </div>
           </div>
         </div>
@@ -133,19 +125,19 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   }`}
                   style={isSelected ? { 
                     backgroundColor: isLightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', 
-                    borderColor: currentAccentColor,
-                    boxShadow: `0 4px 20px ${colorWithAlpha(currentAccentColor, 0.25)}` 
+                    borderColor: effectiveAccent,
+                    boxShadow: `0 4px 20px ${colorWithAlpha(effectiveAccent, 0.25)}` 
                   } : {}}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className={`text-xs font-bold truncate ${textPrimary}`}>{info.name}</span>
                     {isSelected && (
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentAccentColor }} />
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: effectiveAccent }} />
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 mt-2">
-                    <div className="w-4 h-4 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: info.bg }} />
-                    <div className="w-4 h-4 rounded-full border border-white/20 shadow-sm" style={{ backgroundColor: info.surface }} />
+                    <div className="w-4 h-4 rounded-full border border-zinc-400/40 shadow-sm" style={{ backgroundColor: info.bg }} />
+                    <div className="w-4 h-4 rounded-full border border-zinc-400/40 shadow-sm" style={{ backgroundColor: info.surface }} />
                   </div>
                   <p className={`text-[10px] mt-1.5 line-clamp-1 ${textMuted}`}>{info.desc}</p>
                 </button>
@@ -157,29 +149,21 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         {/* Section 2: Accent Colors */}
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between">
-            <label className={`text-[11px] font-black uppercase tracking-wider ${textSecondary}`}>
-              Accent Highlight Color {config.mode === 'ambient' && <span className="text-blue-500 font-normal ml-1">(Locked in Ambient Mode)</span>}
-            </label>
-            <span className={`text-[10px] font-semibold ${textMuted}`}>
-              {config.mode === 'ambient' ? 'Blue (Ambient)' : ACCENT_PRESETS[config.accent]?.name}
-            </span>
+            <label className={`text-[11px] font-black uppercase tracking-wider ${textSecondary}`}>Accent Highlight Color</label>
+            <span className={`text-[10px] font-semibold ${textMuted}`}>{ACCENT_PRESETS[config.accent]?.name}</span>
           </div>
           <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
             {(Object.entries(ACCENT_PRESETS) as [AccentPreset, { name: string; hex: string }][]).map(([key, item]) => {
               const isSelected = config.accent === key;
               const displayColor = key === 'dynamic' ? currentSongDominantColor : item.hex;
-              const isDisabled = config.mode === 'ambient';
               return (
                 <button
                   key={key}
                   onClick={() => handleSelectAccent(key)}
-                  disabled={isDisabled}
                   className={`p-2.5 rounded-2xl flex flex-col items-center gap-1.5 border transition-all active:scale-90 ${
-                    isDisabled ? 'opacity-40 cursor-not-allowed' : ''
-                  } ${
-                    isSelected ? 'ring-2 ring-white/80 scale-105 shadow-lg' : cardBg
+                    isSelected ? 'ring-2 ring-zinc-400/80 scale-105 shadow-lg' : cardBg
                   }`}
-                  style={isSelected && !isDisabled ? { borderColor: displayColor } : {}}
+                  style={isSelected ? { borderColor: displayColor } : {}}
                   title={item.name}
                 >
                   <div 
@@ -223,14 +207,14 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
                   }`}
                   style={isSelected ? { 
                     backgroundColor: isLightMode ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)', 
-                    borderColor: currentAccentColor,
-                    boxShadow: `0 4px 15px ${colorWithAlpha(currentAccentColor, 0.25)}` 
+                    borderColor: effectiveAccent,
+                    boxShadow: `0 4px 15px ${colorWithAlpha(effectiveAccent, 0.25)}` 
                   } : {}}
                 >
                   <span className={`text-xs font-bold block ${textPrimary}`}>{vis.name}</span>
                   <span className={`text-[10px] block mt-0.5 ${textMuted}`}>{vis.desc}</span>
                   <div className="h-6 w-full mt-2 rounded-lg bg-black/30 p-1">
-                    <Visualizer analyser={null} color={currentAccentColor} isPlaying={true} style={vis.id as VisualizerStyle} />
+                    <Visualizer analyser={null} color={effectiveAccent} isPlaying={true} style={vis.id as VisualizerStyle} />
                   </div>
                 </button>
               );
@@ -242,8 +226,8 @@ const ThemeSettingsModal: React.FC<ThemeSettingsModalProps> = ({
         <div className="mt-5 pt-2">
           <button
             onClick={onClose}
-            className="w-full py-3 rounded-xl font-bold text-xs sm:text-sm text-[#06101e] shadow-xl hover:brightness-110 active:scale-98 transition-all"
-            style={{ backgroundColor: currentAccentColor }}
+            className={`w-full py-3 rounded-xl font-bold text-xs sm:text-sm shadow-xl hover:brightness-110 active:scale-98 transition-all ${isLightMode ? 'text-white' : 'text-[#06101e]'}`}
+            style={{ backgroundColor: effectiveAccent }}
           >
             Done & Save Preferences
           </button>
