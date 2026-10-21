@@ -70,9 +70,9 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
         onClick={() => !isExpanded && setIsExpanded(true)}
       >
         {!isExpanded ? (
-          <div className="flex w-full min-w-0 items-center justify-between gap-2.5">
+          <div className="flex w-full min-w-0 items-center justify-between gap-3">
             {/* Touching the body expands the mini player to show nav tabs */}
-            <div className="flex min-w-0 flex-1 items-center gap-2.5 cursor-pointer py-1" onClick={() => setIsExpanded(true)}>
+            <div className="flex min-w-0 flex-1 items-center gap-3 cursor-pointer py-1" onClick={() => setIsExpanded(true)}>
               {/* Cover Art as a rotating vinyl disc: clicking opens full player directly */}
               <button 
                 type="button"
@@ -108,17 +108,7 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
               </div>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
-              {/* Favorite Toggle Button in Collapsed Mode */}
-              <button 
-                onClick={e => { e.stopPropagation(); onToggleFavorite(); }} 
-                aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'} 
-                title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-                className={`grid h-9 w-9 place-items-center rounded-full transition-all active:scale-90 ${isFavorite ? 'bg-rose-500/15 text-rose-400' : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'}`}
-              >
-                <svg className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
-              </button>
-
+            <div className="flex items-center gap-1.5 shrink-0">
               {/* Play / Pause */}
               <button 
                 onClick={e => { e.stopPropagation(); onToggle(); }} 
@@ -244,7 +234,7 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
                     {repeatMode === 'one' && <span className="absolute -top-1.5 -right-1.5 text-[7px] bg-accent text-white rounded-full w-3.5 h-3.5 flex items-center justify-center font-black">1</span>}
                   </div>
                 </button>
-                <button onClick={onToggleFavorite} aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'} className={`p-2 rounded-full transition-all active:scale-90 ${isFavorite ? 'bg-rose-500/15 text-rose-400' : 'text-white/35 hover:text-white/60'}`}>
+                <button onClick={onToggleFavorite} aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'} title={isFavorite ? 'Remove from favorites' : 'Add to favorites'} className={`p-2 rounded-full transition-all active:scale-90 ${isFavorite ? 'bg-rose-500/15 text-rose-400' : 'text-white/35 hover:text-white/60'}`}>
                   <svg className="w-4 h-4" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
                 </button>
               </div>
