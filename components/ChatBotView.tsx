@@ -312,7 +312,7 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({
         style={{ backgroundColor: activeColor }}
       />
 
-      {/* Header with elegant 'Z' symbol & back buttons */}
+      {/* Header with back button & Zenisai AI title */}
       <header 
         className={`relative z-10 flex justify-between items-center px-4 sm:px-6 py-[calc(env(safe-area-inset-top)+0.75rem)] border-b backdrop-blur-xl transition-colors duration-700 ${
           isLight ? 'bg-white/80 border-slate-200' : ''
@@ -338,16 +338,6 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({
             </svg>
           </button>
 
-          <div 
-            className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-xl border text-white font-black text-xl italic tracking-tighter"
-            style={{ 
-              background: `linear-gradient(135deg, ${activeColor}, #070e1f)`,
-              borderColor: colorWithAlpha(activeColor, 0.6),
-              boxShadow: `0 0 20px ${colorWithAlpha(activeColor, 0.4)}`
-            }}
-          >
-            Z
-          </div>
           <div>
             <div className="flex items-center gap-2">
               <h2 className={`text-base sm:text-lg font-extrabold tracking-tight ${isLight ? 'text-slate-900' : 'text-white'}`}>
@@ -359,52 +349,6 @@ const ChatBotView: React.FC<ChatBotViewProps> = ({
               Context-aware music & app copilot
             </p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          {onOpenEqualizer && (
-            <button
-              onClick={onOpenEqualizer}
-              title="Equalizer"
-              aria-label="Open Equalizer"
-              className={`p-2 rounded-xl transition-all active:scale-90 ${
-                isLight ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
-            </button>
-          )}
-
-          {onOpenThemeSettings && (
-            <button
-              onClick={onOpenThemeSettings}
-              title="Theme settings"
-              aria-label="Theme settings"
-              className={`p-2 rounded-xl transition-all active:scale-90 ${
-                isLight ? 'bg-slate-100 text-slate-700 hover:bg-slate-200' : 'bg-white/5 text-white/70 hover:bg-white/10'
-              }`}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014 4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-              </svg>
-            </button>
-          )}
-
-          <button 
-            onClick={onClose} 
-            aria-label="Close assistant"
-            className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-all active:scale-90 shadow-sm ${
-              isLight 
-                ? 'bg-slate-100 border border-slate-200 text-slate-700 hover:bg-slate-200' 
-                : 'bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
         </div>
       </header>
 
