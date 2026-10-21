@@ -27,9 +27,10 @@ interface FeedActionProps {
   children: React.ReactNode;
   activeColor: string;
   isLight: boolean;
+  textColor: string;
 }
 
-const FeedAction: React.FC<FeedActionProps> = ({ label, onClick, active, children, activeColor, isLight }) => (
+const FeedAction: React.FC<FeedActionProps> = ({ label, onClick, active, children, activeColor, isLight, textColor }) => (
   <button 
     type="button" 
     title={label} 
@@ -47,7 +48,10 @@ const FeedAction: React.FC<FeedActionProps> = ({ label, onClick, active, childre
     >
       {children}
     </span>
-    <span className={`max-w-10 sm:max-w-12 truncate text-[7px] sm:text-[8px] font-semibold ${isLight ? 'text-slate-900 font-bold' : 'text-white/80'}`}>
+    <span 
+      className="max-w-10 sm:max-w-12 truncate text-[7px] sm:text-[8px] font-extrabold drop-shadow-sm transition-colors"
+      style={{ color: isLight ? textColor : 'rgba(255, 255, 255, 0.8)' }}
+    >
       {label}
     </span>
   </button>
@@ -70,6 +74,19 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
   const activeVisualizer = visualizerStyle || themeConfig.visualizerStyle || 'bars';
   const activeColor = dominantColor || '#3b82f6';
   const isLight = themeConfig.mode === 'light' || themeConfig.mode === 'crisp_white';
+
+  // Helper function to calculate luminance and pick a contrasting color if the dominant color is too bright/white
+  const getAdaptiveTextColor = (hexColor: string) => {
+    if (!hexColor || !hexColor.startsWith('#')) return '#1e293b';
+    const r = parseInt(hexColor.slice(1, 3), 16) || 0;
+    const g = parseInt(hexColor.slice(3, 5), 16) || 0;
+    const b = parseInt(hexColor.slice(5, 7), 16) || 0;
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    // If the dominant color is too light/white, return a deep slate/charcoal contrast color; otherwise return the dominant accent color
+    return luminance > 0.75 ? '#0f172a' : hexColor;
+  };
+
+  const adaptedTextColor = getAdaptiveTextColor(activeColor);
 
   // --- SYNCHRONIZED LYRICS ENGINE ---
   const [syncedLyrics, setSyncedLyrics] = useState<ParsedLyricLine[]>(() => syncedLyricsList || []);
@@ -294,63 +311,79 @@ const PlayerFull: React.FC<PlayerFullProps> = ({
                     <div className="pointer-events-none absolute bottom-3 sm:bottom-5 left-3 sm:left-6 z-10 max-w-[calc(100%-5rem)] compact-landscape:max-w-[calc(100%-7.5rem)]">
                       <div className="mb-2 compact-landscape:mb-1 min-h-8 compact-landscape:min-h-5">
                         {isCurrent && currentLineIndex >= 0 ? (
-                          <p className="text-base sm:text-lg compact-landscape:text-sm font-bold leading-tight text-accent drop-shadow-lg">
+                          <p className="text-base sm:text-lg compact-landscape:text-sm font-bold leading-tight drop-shadow-lg" style={{ color: activeColor }}>
                             {syncedLyrics[currentLineIndex].text}
                           </p>
                         ) : isCurrent && plainLyrics.length > 0 ? (
-                          <p className="text-xs sm:text-sm font-semibold text-white/80">{plainLyrics[0]}</p>
+                          <p 
+                            className="text-xs sm:text-sm font-semibold transition-colors"
+                            style={{ color: isLight ? adaptedTextColor : 'rgba(255,255,255,0.8)' }}
+                          >
+                            {plainLyrics[0]}
+                          </p>
                         ) : (
-                          <p className="text-[11px] font-medium text-white/60">
+                          <p 
+                            className="text-[11px] font-medium transition-colors"
+                            style={{ color: isLight ? adaptedTextColor : 'rgba(255,255,255,0.6)' }}
+                          >
                             {isLoadingLyrics ? 'Loading lyrics...' : 'Lyrics sync with track'}
                           </p>
                         )}
                       </div>
-                      <h2 className="truncate text-xl sm:text-2xl compact-landscape:text-base font-bold text-white drop-shadow-md">
+                      <h2 
+                        className="truncate text-xl sm:text-2xl compact-landscape:text-base font-bold drop-shadow-md transition-colors"
+                        style={{ color: isLight ? adaptedTextColor : '#ffffff' }}
+                      >
                         {feedSong.title}
                       </h2>
-                      <p className="mt-0.5 truncate text-xs sm:text-sm text-white/75">{feedSong.artist}</p>
+                      <p 
+                        className="mt-0.5 truncate text-xs sm:text-sm font-medium transition-colors"
+                        style={{ color: isLight ? adaptedTextColor : 'rgba(255,255,255,0.75)' }}
+                      >
+                        {feedSong.artist}
+                      </p>
                     </div>
 
                     {/* Action buttons rail */}
                     <div className="absolute right-2 top-1/2 z-20 flex max-h-[calc(100%-1.5rem)] -translate-y-1/2 flex-col compact-landscape:grid compact-landscape:grid-cols-2 compact-landscape:gap-1.5 compact-landscape:max-h-[92%] items-center gap-2 sm:gap-2.5 overflow-y-auto no-scrollbar sm:right-4">
-                      <FeedAction label={isFavorite(feedSong.id) ? 'Saved' : 'Like'} active={isFavorite(feedSong.id)} onClick={() => onToggleFavorite(feedSong)} activeColor={activeColor} isLight={isLight}>
+                      <FeedAction label={isFavorite(feedSong.id) ? 'Saved' : 'Like'} active={isFavorite(feedSong.id)} onClick={() => onToggleFavorite(feedSong)} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill={isFavorite(feedSong.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" /></svg>
                       </FeedAction>
                       {onOpenEqualizer && (
-                        <FeedAction label="Equalizer" active={true} onClick={onOpenEqualizer} activeColor={activeColor} isLight={isLight}>
+                        <FeedAction label="Equalizer" active={true} onClick={onOpenEqualizer} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                           <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
                         </FeedAction>
                       )}
-                      <FeedAction label="Queue" onClick={() => setActiveTab('queue')} activeColor={activeColor} isLight={isLight}>
+                      <FeedAction label="Queue" onClick={() => setActiveTab('queue')} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h10m3-3 3 3-3 3" /></svg>
                       </FeedAction>
-                      <FeedAction label="Lyrics" onClick={() => setActiveTab('lyrics')} activeColor={activeColor} isLight={isLight}>
+                      <FeedAction label="Lyrics" onClick={() => setActiveTab('lyrics')} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 18V5l12-2v13M9 9l12-2M5 19c0 1.1-1.1 2-2.5 2S0 20.1 0 19s1.1-2 2.5-2S5 17.9 5 19zm16-3c0 1.1-1.1 2-2.5 2S16 16.9 16 16s1.1-2 2.5-2S21 14.9 21 16z" /></svg>
                       </FeedAction>
-                      <FeedAction label="Playlist" onClick={() => onShowPlaylistModal(feedSong)} activeColor={activeColor} isLight={isLight}>
+                      <FeedAction label="Playlist" onClick={() => onShowPlaylistModal(feedSong)} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
                       </FeedAction>
-                      <FeedAction label="Download" onClick={() => onDownload(feedSong)} activeColor={activeColor} isLight={isLight}>
+                      <FeedAction label="Download" onClick={() => onDownload(feedSong)} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v3h14v-3" /></svg>
                       </FeedAction>
-                      <FeedAction label={sleepTimer ? 'Timer on' : 'Timer'} active={sleepTimer !== null} onClick={() => setShowSleepTimerMenu(value => !value)} activeColor={activeColor} isLight={isLight}>
+                      <FeedAction label={sleepTimer ? 'Timer on' : 'Timer'} active={sleepTimer !== null} onClick={() => setShowSleepTimerMenu(value => !value)} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
                       </FeedAction>
-                      <FeedAction label={isShuffle ? 'Shuffle on' : 'Shuffle'} active={isShuffle} onClick={onToggleShuffle} activeColor={activeColor} isLight={isLight}>
+                      <FeedAction label={isShuffle ? 'Shuffle on' : 'Shuffle'} active={isShuffle} onClick={onToggleShuffle} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" /></svg>
                       </FeedAction>
-                      <FeedAction label={repeatMode === 'off' ? 'Repeat' : repeatMode === 'one' ? 'Repeat 1' : 'Repeat all'} active={repeatMode !== 'off'} onClick={onToggleRepeat} activeColor={activeColor} isLight={isLight}>
+                      <FeedAction label={repeatMode === 'off' ? 'Repeat' : repeatMode === 'one' ? 'Repeat 1' : 'Repeat all'} active={repeatMode !== 'off'} onClick={onToggleRepeat} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                         <span className="relative">
                           <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 2l4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-1v2a3 3 0 0 1-3 3H3" /></svg>
                           {repeatMode === 'one' && <span className="absolute -right-1 -top-1 grid h-3 w-3 place-items-center rounded-full bg-accent text-[7px] font-black text-[#06101e]">1</span>}
                         </span>
                       </FeedAction>
                       {onOpenThemeSettings && (
-                        <FeedAction label="Themes" onClick={onOpenThemeSettings} activeColor={activeColor} isLight={isLight}>
+                        <FeedAction label="Themes" onClick={onOpenThemeSettings} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                           <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014 4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
                         </FeedAction>
                       )}
-                      <FeedAction label="Share" onClick={() => onShare(feedSong)} activeColor={activeColor} isLight={isLight}>
+                      <FeedAction label="Share" onClick={() => onShare(feedSong)} activeColor={activeColor} isLight={isLight} textColor={adaptedTextColor}>
                         <svg className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><path d="m8.6 10.7 6.8-4.4m-6.8 7 6.8 4.1" /></svg>
                       </FeedAction>
                     </div>
