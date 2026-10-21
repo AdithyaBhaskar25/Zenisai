@@ -66,14 +66,12 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
     >
       <div 
         style={{ background: 'color-mix(in srgb, var(--color-surface) 92%, var(--color-primary) 8%)' }} 
-        className={`relative border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.65)] backdrop-blur-2xl overflow-hidden rounded-[22px] ${snappedTransition} ${isExpanded ? 'p-3 sm:p-4 compact-landscape:p-2 flex flex-col gap-2 sm:gap-3' : 'px-3 py-2.5 flex items-center hover:border-white/20'}`}
+        className={`relative border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.65)] backdrop-blur-2xl overflow-hidden rounded-[22px] ${snappedTransition} ${isExpanded ? 'p-3 sm:p-4 compact-landscape:p-2 flex flex-col gap-2.5 sm:gap-3' : 'px-3 py-2.5 flex items-center hover:border-white/20'}`}
         onClick={() => !isExpanded && setIsExpanded(true)}
       >
         {!isExpanded ? (
           <div className="flex w-full min-w-0 items-center justify-between gap-3">
-            {/* Touching the body expands the mini player to show nav tabs */}
             <div className="flex min-w-0 flex-1 items-center gap-3 cursor-pointer py-1" onClick={() => setIsExpanded(true)}>
-              {/* Cover Art as a rotating vinyl disc: clicking opens full player directly */}
               <button 
                 type="button"
                 onClick={e => { e.stopPropagation(); onOpenPlayer(); }}
@@ -90,7 +88,6 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
                     alt={song?.title || 'Track'} 
                     className="h-full w-full object-cover" 
                   />
-                  {/* Vinyl grooves and central spindle hole */}
                   <div className="absolute inset-0 rounded-full border-[3px] border-black/30 pointer-events-none" />
                   <div className="absolute inset-0 m-auto w-2.5 h-2.5 rounded-full bg-zinc-950 border border-white/50 shadow-inner z-10" />
                 </div>
@@ -101,7 +98,6 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
                   <p className="truncate text-xs font-bold text-white">{song?.title || 'Zenisai'}</p>
                   <span className="text-[10px] text-white/40 truncate">· {song?.artist || 'Ready to Play'}</span>
                 </div>
-                {/* Complete wrapped lyrics line - shows whole line without truncation */}
                 <p className="mt-0.5 whitespace-normal break-words text-wrap text-[11px] font-medium text-white/90 leading-tight">
                   {dockLyric}
                 </p>
@@ -109,7 +105,6 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5 shrink-0">
-              {/* Play / Pause */}
               <button 
                 onClick={e => { e.stopPropagation(); onToggle(); }} 
                 aria-label={isPlaying ? 'Pause' : 'Play'} 
@@ -121,7 +116,6 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
                   <svg className="h-4 w-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
                 )}
               </button>
-              {/* Direct Full Player button from closed state */}
               <button 
                 onClick={e => { e.stopPropagation(); onOpenPlayer(); }} 
                 aria-label="Open full screen player" 
@@ -130,7 +124,6 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>
               </button>
-              {/* Expand to show nav tabs */}
               <button 
                 onClick={e => { e.stopPropagation(); setIsExpanded(true); }} 
                 aria-label="Show navigation tabs" 
@@ -141,13 +134,12 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
               </button>
             </div>
             
-            {/* Progress line for collapsed mode */}
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/5">
               <div className="h-full bg-accent transition-all duration-300" style={{ width: `${percent}%` }} />
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 sm:gap-4 transition-opacity duration-200">
+          <div className="flex flex-col gap-2.5 sm:gap-3.5 transition-opacity duration-200">
             {/* Top Row: Song Info with rotating vinyl disc */}
             <div className="flex items-center gap-3">
               <button
@@ -155,7 +147,7 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
                 onClick={onOpenPlayer}
                 aria-label="Open full player"
                 title="Open full player"
-                className="relative w-12 h-12 rounded-full overflow-hidden flex-shrink-0 cursor-pointer shadow-lg border-2 border-white/25 ring-2 ring-black/40 group active:scale-90 transition-transform focus:outline-none"
+                className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-full overflow-hidden flex-shrink-0 cursor-pointer shadow-lg border-2 border-white/25 ring-2 ring-black/40 group active:scale-90 transition-transform focus:outline-none"
               >
                 <div 
                   className="w-full h-full animate-[spin_8s_linear_infinite]"
@@ -175,8 +167,8 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
               </button>
             </div>
 
-            {/* Lyrics banner: completely wraps the whole lyrics line */}
-            <button onClick={onOpenPlayer} className="flex w-full min-w-0 items-start gap-2.5 rounded-[14px] border border-accent-tint bg-accent-tint/40 px-3.5 py-2.5 compact-landscape:hidden text-left transition-colors hover:bg-accent-tint/60">
+            {/* Lyrics banner */}
+            <button onClick={onOpenPlayer} className="flex w-full min-w-0 items-start gap-2.5 rounded-[14px] border border-accent-tint bg-accent-tint/40 px-3.5 py-2 compact-landscape:hidden text-left transition-colors hover:bg-accent-tint/60">
               <svg className="h-4 w-4 mt-0.5 shrink-0 text-accent" viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V5l12-2v13M9 9l12-2M5 19c0 1.1-1.1 2-2.5 2S0 20.1 0 19s1.1-2 2.5-2S5 17.9 5 19zm16-3c0 1.1-1.1 2-2.5 2S16 16.9 16 16s1.1-2 2.5-2S21 14.9 21 16z" /></svg>
               <span className="whitespace-normal break-words text-wrap flex-1 text-xs font-medium text-white/90 leading-relaxed">
                 {activeLyric || plainLyrics.split('\n').find(line => line.trim()) || 'Lyrics appear with playback'}
@@ -190,7 +182,7 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
                 <button 
                   key={tab.id}
                   onClick={() => setActiveView(tab.id as AppView)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-[10px] transition-all duration-150 active:scale-95 ${activeView === tab.id ? 'bg-accent text-[#06101e] font-bold shadow-md shadow-accent/20' : 'text-white/50 hover:text-white/80 font-medium'}`}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 sm:py-2 rounded-[10px] transition-all duration-150 active:scale-95 ${activeView === tab.id ? 'bg-accent text-[#06101e] font-bold shadow-md shadow-accent/20' : 'text-white/50 hover:text-white/80 font-medium'}`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={tab.icon}></path></svg>
                   <span className="text-[11px]">{tab.label}</span>
@@ -198,43 +190,46 @@ const FloatingHub: React.FC<FloatingHubProps> = ({
               ))}
             </div>
 
-            {/* Bottom Row: Controls */}
-            <div className="flex items-center justify-between px-1 gap-2 pt-0.5">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <button onClick={onOpenChat} aria-label="Open Zenisai assistant" title="AI Assistant" className="p-2 rounded-full bg-white/5 text-white/60 border border-white/5 active:scale-90 transition-all hover:text-accent hover:bg-white/10">
+            {/* Bottom Controls Row: Optimized with responsive wrapping & compact button spacing for small phones */}
+            <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 px-0.5 pt-0.5">
+              {/* Secondary utility buttons */}
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <button onClick={onOpenChat} aria-label="Open Zenisai assistant" title="AI Assistant" className="p-1.5 sm:p-2 rounded-full bg-white/5 text-white/60 border border-white/5 active:scale-90 transition-all hover:text-accent hover:bg-white/10">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
                 </button>
                 {onOpenEqualizer && (
-                  <button onClick={onOpenEqualizer} aria-label="Equalizer" title="Equalizer & Sound Stage" className="p-2 rounded-full bg-white/5 text-white/60 border border-white/5 active:scale-90 transition-all hover:text-accent hover:bg-white/10">
+                  <button onClick={onOpenEqualizer} aria-label="Equalizer" title="Equalizer & Sound Stage" className="p-1.5 sm:p-2 rounded-full bg-white/5 text-white/60 border border-white/5 active:scale-90 transition-all hover:text-accent hover:bg-white/10">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                   </button>
                 )}
                 {onOpenThemeSettings && (
-                  <button onClick={onOpenThemeSettings} aria-label="Theme settings" title="Themes & Colors" className="p-2 rounded-full bg-white/5 text-white/60 border border-white/5 active:scale-90 transition-all hover:text-accent hover:bg-white/10">
+                  <button onClick={onOpenThemeSettings} aria-label="Theme settings" title="Themes & Colors" className="p-1.5 sm:p-2 rounded-full bg-white/5 text-white/60 border border-white/5 active:scale-90 transition-all hover:text-accent hover:bg-white/10">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4 4 4 0 014-4 4 4 0 014 4 4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>
                   </button>
                 )}
-                <button onClick={onToggleShuffle} title={isShuffle ? "Shuffle on" : "Shuffle off"} className={`p-2 rounded-full transition-all active:scale-90 ${isShuffle ? 'bg-accent/15 text-accent shadow-accent' : 'text-white/35 hover:text-white/60'}`}>
+                <button onClick={onToggleShuffle} title={isShuffle ? "Shuffle on" : "Shuffle off"} className={`p-1.5 sm:p-2 rounded-full transition-all active:scale-90 ${isShuffle ? 'bg-accent/15 text-accent shadow-accent' : 'text-white/35 hover:text-white/60'}`}>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
                 </button>
               </div>
 
-              <div className="flex items-center gap-2">
+              {/* Main Playback transport buttons (Prev, Play/Pause, Next) */}
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <button onClick={onPrev} aria-label="Previous track" className="text-white/60 p-1.5 active:scale-90 transition-all hover:text-white"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg></button>
-                <button onClick={onToggle} aria-label={isPlaying ? 'Pause' : 'Play'} className="w-10 h-10 flex items-center justify-center bg-accent text-[#06101e] rounded-full active:scale-90 transition-all shadow-md shadow-accent/25">
+                <button onClick={onToggle} aria-label={isPlaying ? 'Pause' : 'Play'} className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-accent text-[#06101e] rounded-full active:scale-90 transition-all shadow-md shadow-accent/25">
                   {isPlaying ? <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg> : <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>}
                 </button>
                 <button onClick={onNext} aria-label="Next track" className="text-white/60 p-1.5 active:scale-90 transition-all hover:text-white"><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg></button>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button onClick={onToggleRepeat} aria-label={`Repeat ${repeatMode}`} className={`p-2 rounded-full transition-all active:scale-90 ${repeatMode !== 'off' ? 'bg-accent/15 text-accent' : 'text-white/35 hover:text-white/60'}`}>
+              {/* Right Corner Group: Repeat & Favorite Button side by side */}
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <button onClick={onToggleRepeat} aria-label={`Repeat ${repeatMode}`} className={`p-1.5 sm:p-2 rounded-full transition-all active:scale-90 ${repeatMode !== 'off' ? 'bg-accent/15 text-accent' : 'text-white/35 hover:text-white/60'}`}>
                   <div className="relative">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                     {repeatMode === 'one' && <span className="absolute -top-1.5 -right-1.5 text-[7px] bg-accent text-white rounded-full w-3.5 h-3.5 flex items-center justify-center font-black">1</span>}
                   </div>
                 </button>
-                <button onClick={onToggleFavorite} aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'} title={isFavorite ? 'Remove from favorites' : 'Add to favorites'} className={`p-2 rounded-full transition-all active:scale-90 ${isFavorite ? 'bg-rose-500/15 text-rose-400' : 'text-white/35 hover:text-white/60'}`}>
+                <button onClick={onToggleFavorite} aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'} title={isFavorite ? 'Remove from favorites' : 'Add to favorites'} className={`p-1.5 sm:p-2 rounded-full transition-all active:scale-90 ${isFavorite ? 'bg-rose-500/15 text-rose-400' : 'text-white/35 hover:text-white/60'}`}>
                   <svg className="w-4 h-4" fill={isFavorite ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path></svg>
                 </button>
               </div>
